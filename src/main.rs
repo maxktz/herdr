@@ -124,6 +124,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Accepts: hex (#rrggbb), named colors, rgb(r,g,b), or panel_bg = "reset"
 # [theme.custom]
 # panel_bg = "reset"
+# active_space_bg = "#313244"
+# separator = "#3b4261"
 # accent = "#f5c2e7"
 # red = "#ff6188"
 # green = "#a6e3a1"
@@ -271,6 +273,30 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Ask for a tab name before creating a new tab.
 # Set false to create tabs immediately with generated names.
 # prompt_new_tab_name = true
+
+# Dim generated tab names relative to manually assigned tab names.
+# Set false to use the same higher-contrast styles for both.
+# dim_auto_named_tabs = true
+
+# Reserve and render a scrollbar column inside panes.
+# Set false to return that column to pane applications.
+# show_pane_scrollbars = true
+
+# Show section labels in the expanded desktop sidebar.
+# show_sidebar_section_labels = true
+
+# Move the grouped/priority toggle to the bottom-left control row.
+# agent_sort_toggle_in_footer = false
+# show_agent_sort_toggle = true
+
+# Move the expanded sidebar collapse button one column inward.
+# inset_sidebar_collapse_button = false
+
+# Use compact icons for the new-space and global-menu actions.
+# sidebar_action_icons = false
+
+# Move the expanded sidebar menu action one column inward.
+# inset_sidebar_menu_button = false
 
 # Share one separator cell between adjacent pane frames.
 # shared_pane_borders = false

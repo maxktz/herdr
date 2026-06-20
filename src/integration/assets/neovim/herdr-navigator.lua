@@ -1,4 +1,14 @@
--- HERDR_INTEGRATION_VERSION=5
+-- HERDR_INTEGRATION_VERSION=6
+
+local function is_herdr_pane()
+  return vim.env.HERDR_ENV == "1"
+    or (vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "")
+    or (vim.env.HERDR_PANE_ID and vim.env.HERDR_PANE_ID ~= "")
+end
+
+if not is_herdr_pane() then
+  return
+end
 
 if vim.g.loaded_herdr_navigator == 1 then
   return
@@ -121,7 +131,7 @@ function M.setup(opts)
 
     for direction, spec in pairs(directions) do
       for _, key in ipairs(spec.keys) do
-        vim.keymap.set({ "n", "i" }, key, function()
+        vim.keymap.set("n", key, function()
           M.navigate(direction)
         end, { silent = true, desc = "Herdr navigate " .. direction })
         vim.keymap.set("t", key, function()

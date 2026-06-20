@@ -3,7 +3,11 @@
 ## Unreleased
 
 ### Added
+- Added independent expanded-sidebar options for section labels, agent-sort placement, control insets, and compact action icons.
+- Added `ui.show_pane_scrollbars` to hide pane scrollbars and return their reserved column to pane applications.
+- Added `ui.dim_auto_named_tabs` to optionally render generated and manually named tabs with the same higher-contrast text styles.
 - Added smart Vim/Neovim pane navigation for direct `focus_pane_*` keybindings, plus `herdr integration install neovim` for the editor-side navigator plugin. Herdr forwards those keys into Vim-like foreground processes, and the Neovim plugin moves between editor splits first before calling `herdr pane focus --direction ...` at split edges.
+- Added named external themes under the config `themes/` directory and the Settings theme palette, plus dedicated `active_space_bg` and `separator` colors for precise theme integration.
 - Added optional shared pane borders and a separate focused-border thickness setting in the panes settings tab and `[ui]` configuration.
 
 ### Fixed

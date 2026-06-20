@@ -3,7 +3,7 @@ use ratatui::layout::Rect;
 
 use crate::{
     app::{
-        state::{AppState, ExperimentSetting, PaneSetting, SettingsSection, THEME_NAMES},
+        state::{available_theme_names, AppState, ExperimentSetting, PaneSetting, SettingsSection},
         App, Mode,
     },
     config::ToastDelivery,
@@ -88,9 +88,9 @@ fn normalize_theme_name(name: &str) -> String {
     name.to_lowercase().replace([' ', '_'], "-")
 }
 
-fn current_theme_index(theme_name: &str) -> usize {
+fn current_theme_index(theme_names: &[String], theme_name: &str) -> usize {
     let normalized = normalize_theme_name(theme_name);
-    THEME_NAMES
+    theme_names
         .iter()
         .position(|name| normalize_theme_name(name) == normalized)
         .unwrap_or(0)
@@ -117,8 +117,21 @@ fn toast_delivery_for_index(idx: usize) -> ToastDelivery {
 fn preview_selected_theme(state: &mut AppState) {
     use crate::app::state::Palette;
 
-    let name = THEME_NAMES[state.settings.list.selected];
-    if let Some(mut palette) = Palette::from_name(name) {
+    let Some(name) = state
+        .settings
+        .theme_names
+        .get(state.settings.list.selected)
+        .cloned()
+    else {
+        return;
+    };
+    let mut palette = Palette::from_name(&name).or_else(|| {
+        crate::config::load_external_theme(&name)
+            .ok()
+            .flatten()
+            .map(|theme| Palette::from_external_theme(&theme))
+    });
+    if let Some(mut palette) = palette.take() {
         if let Some(custom) = &state.theme_runtime.custom {
             palette = palette.with_overrides(custom);
         }
@@ -126,7 +139,7 @@ fn preview_selected_theme(state: &mut AppState) {
             palette.accent = crate::config::parse_color(accent);
         }
         state.palette = palette;
-        state.theme_name = name.to_string();
+        state.theme_name = name;
     }
 }
 
@@ -179,7 +192,10 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 let previous = state.settings.list.selected;
-                state.settings.list.move_next(THEME_NAMES.len());
+                state
+                    .settings
+                    .list
+                    .move_next(state.settings.theme_names.len());
                 if state.settings.list.selected != previous {
                     preview_selected_theme(state);
                 }
@@ -212,7 +228,8 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
             KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
                 state.settings.section = SettingsSection::Theme;
-                state.settings.list.selected = current_theme_index(&state.theme_name);
+                state.settings.list.selected =
+                    current_theme_index(&state.settings.theme_names, &state.theme_name);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -283,7 +300,8 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
                 state.settings.section = SettingsSection::Theme;
-                state.settings.list.selected = current_theme_index(&state.theme_name);
+                state.settings.list.selected =
+                    current_theme_index(&state.settings.theme_names, &state.theme_name);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -324,9 +342,12 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.integration_install_messages.clear();
     state.settings.original_palette = Some(state.palette.clone());
     state.settings.original_theme = Some(state.theme_name.clone());
+    state.settings.theme_names = available_theme_names();
     state.settings.section = section;
     state.settings.list.selected = match section {
-        SettingsSection::Theme => current_theme_index(&state.theme_name),
+        SettingsSection::Theme => {
+            current_theme_index(&state.settings.theme_names, &state.theme_name)
+        }
         SettingsSection::Sound => usize::from(!state.sound_enabled()),
         SettingsSection::Toast => toast_delivery_index(state.toast_delivery()),
         SettingsSection::Panes => 0,
@@ -399,7 +420,7 @@ impl AppState {
                     0
                 };
                 let idx = scroll + (row - area.y) as usize;
-                (idx < THEME_NAMES.len()).then_some(idx)
+                (idx < self.settings.theme_names.len()).then_some(idx)
             }
             SettingsSection::Sound => {
                 let list_y = area.y + 3;
@@ -443,7 +464,9 @@ impl AppState {
                 if let Some(section) = self.settings_tab_at(mouse.column, mouse.row) {
                     self.settings.section = section;
                     self.settings.list.select(match section {
-                        SettingsSection::Theme => current_theme_index(&self.theme_name),
+                        SettingsSection::Theme => {
+                            current_theme_index(&self.settings.theme_names, &self.theme_name)
+                        }
                         SettingsSection::Sound => usize::from(!self.sound_enabled()),
                         SettingsSection::Toast => toast_delivery_index(self.toast_delivery()),
                         SettingsSection::Panes => 0,
@@ -504,6 +527,32 @@ mod tests {
 
     use super::super::{app_for_mouse_test, mouse, state_with_workspaces};
     use super::*;
+
+    #[test]
+    fn current_theme_index_finds_external_theme() {
+        let names = vec!["catppuccin".to_string(), "ot-tokyonight".to_string()];
+
+        assert_eq!(current_theme_index(&names, "ot-tokyonight"), 1);
+    }
+
+    #[test]
+    fn theme_navigation_uses_settings_theme_snapshot() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.settings.theme_names = vec![
+            "catppuccin".to_string(),
+            "tokyo-night".to_string(),
+            "ot-external".to_string(),
+        ];
+        state.settings.section = SettingsSection::Theme;
+        state.settings.list.selected = 1;
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
+        );
+
+        assert_eq!(state.settings.list.selected, 2);
+    }
 
     #[test]
     fn settings_cancel_restores_previewed_theme_from_other_sections() {

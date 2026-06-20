@@ -467,6 +467,22 @@ pub struct UiConfig {
     pub confirm_close: bool,
     /// Ask for a tab name before creating a new tab. Default: true.
     pub prompt_new_tab_name: bool,
+    /// Dim auto-named tabs relative to manually named tabs. Default: true.
+    pub dim_auto_named_tabs: bool,
+    /// Reserve and render a scrollbar column inside panes. Default: true.
+    pub show_pane_scrollbars: bool,
+    /// Show the "spaces" and "agents" labels in the expanded sidebar. Default: true.
+    pub show_sidebar_section_labels: bool,
+    /// Move the agent sort toggle from the header to the bottom control row. Default: false.
+    pub agent_sort_toggle_in_footer: bool,
+    /// Show the agent-panel grouped/priority toggle. Default: true.
+    pub show_agent_sort_toggle: bool,
+    /// Move the expanded sidebar collapse button one column inward. Default: false.
+    pub inset_sidebar_collapse_button: bool,
+    /// Use compact icons for the new-space and global-menu actions. Default: false.
+    pub sidebar_action_icons: bool,
+    /// Move the expanded sidebar menu action one column inward. Default: false.
+    pub inset_sidebar_menu_button: bool,
     /// Share one border cell between adjacent panes. Default: false.
     pub shared_pane_borders: bool,
     /// Draw the focused pane border with thick glyphs in terminal mode. Default: true.
@@ -659,6 +675,14 @@ impl Default for UiConfig {
             mouse_scroll_lines: None,
             confirm_close: true,
             prompt_new_tab_name: true,
+            dim_auto_named_tabs: true,
+            show_pane_scrollbars: true,
+            show_sidebar_section_labels: true,
+            agent_sort_toggle_in_footer: false,
+            show_agent_sort_toggle: true,
+            inset_sidebar_collapse_button: false,
+            sidebar_action_icons: false,
+            inset_sidebar_menu_button: false,
             shared_pane_borders: false,
             thick_focused_pane_border: true,
             show_agent_labels_on_pane_borders: false,
@@ -902,6 +926,66 @@ thick_focused_pane_border = false
         .unwrap();
         assert!(config.ui.shared_pane_borders);
         assert!(!config.ui.thick_focused_pane_border);
+    }
+
+    #[test]
+    fn auto_named_tab_dimming_defaults_on_and_parses() {
+        let default_config = Config::default();
+        assert!(default_config.ui.dim_auto_named_tabs);
+
+        let config: Config = toml::from_str(
+            r#"
+[ui]
+dim_auto_named_tabs = false
+"#,
+        )
+        .unwrap();
+        assert!(!config.ui.dim_auto_named_tabs);
+    }
+
+    #[test]
+    fn pane_scrollbars_default_on_and_parse() {
+        let default_config = Config::default();
+        assert!(default_config.ui.show_pane_scrollbars);
+
+        let config: Config = toml::from_str(
+            r#"
+[ui]
+show_pane_scrollbars = false
+"#,
+        )
+        .unwrap();
+        assert!(!config.ui.show_pane_scrollbars);
+    }
+
+    #[test]
+    fn expanded_sidebar_customization_defaults_preserve_existing_layout_and_parse() {
+        let default_config = Config::default();
+        assert!(default_config.ui.show_sidebar_section_labels);
+        assert!(!default_config.ui.agent_sort_toggle_in_footer);
+        assert!(default_config.ui.show_agent_sort_toggle);
+        assert!(!default_config.ui.inset_sidebar_collapse_button);
+        assert!(!default_config.ui.sidebar_action_icons);
+        assert!(!default_config.ui.inset_sidebar_menu_button);
+
+        let config: Config = toml::from_str(
+            r#"
+[ui]
+show_sidebar_section_labels = false
+agent_sort_toggle_in_footer = true
+show_agent_sort_toggle = false
+inset_sidebar_collapse_button = true
+sidebar_action_icons = true
+inset_sidebar_menu_button = true
+"#,
+        )
+        .unwrap();
+        assert!(!config.ui.show_sidebar_section_labels);
+        assert!(config.ui.agent_sort_toggle_in_footer);
+        assert!(!config.ui.show_agent_sort_toggle);
+        assert!(config.ui.inset_sidebar_collapse_button);
+        assert!(config.ui.sidebar_action_icons);
+        assert!(config.ui.inset_sidebar_menu_button);
     }
 
     #[test]

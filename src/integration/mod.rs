@@ -180,7 +180,7 @@ const CURSOR_INTEGRATION_VERSION: u32 = 1;
 const CURSOR_CONFIG_DIR_ENV_VAR: &str = "CURSOR_CONFIG_DIR";
 const NEOVIM_PLUGIN_INSTALL_NAME: &str = "herdr-navigator.lua";
 const NEOVIM_PLUGIN_ASSET: &str = include_str!("assets/neovim/herdr-navigator.lua");
-const NEOVIM_INTEGRATION_VERSION: u32 = 5;
+const NEOVIM_INTEGRATION_VERSION: u32 = 6;
 const INTEGRATION_VERSION_MARKER: &str = "HERDR_INTEGRATION_VERSION=";
 
 #[derive(Debug)]

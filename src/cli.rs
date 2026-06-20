@@ -212,6 +212,7 @@ fn run_config_command(args: &[String]) -> std::io::Result<i32> {
 
     match subcommand {
         "reset-keys" => config_reset_keys(&args[1..]),
+        "set-theme" => config_set_theme(&args[1..]),
         "help" | "--help" | "-h" => {
             print_config_help();
             Ok(0)
@@ -221,6 +222,44 @@ fn run_config_command(args: &[String]) -> std::io::Result<i32> {
             Ok(2)
         }
     }
+}
+
+fn config_set_theme(args: &[String]) -> std::io::Result<i32> {
+    let [name] = args else {
+        eprintln!("usage: herdr config set-theme <name>");
+        return Ok(2);
+    };
+    let exists = crate::app::state::Palette::from_name(name).is_some()
+        || matches!(crate::config::load_external_theme(name), Ok(Some(_)));
+    if !exists {
+        eprintln!(
+            "theme {name:?} is neither built in nor present in {}",
+            crate::config::external_themes_dir().display()
+        );
+        return Ok(1);
+    }
+
+    let path = crate::config::config_path();
+    let content = if path.exists() {
+        std::fs::read_to_string(&path)?
+    } else {
+        String::new()
+    };
+    if let Err(err) = content.parse::<toml::Value>() {
+        eprintln!(
+            "config file at {} is invalid TOML: {err}. Fix it before changing themes.",
+            path.display()
+        );
+        return Ok(1);
+    }
+    let quoted = toml::Value::String(name.clone()).to_string();
+    let updated = crate::config::upsert_section_value(&content, "theme", "name", &quoted);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, updated)?;
+    println!("theme set to {name} in {}", path.display());
+    Ok(0)
 }
 
 fn config_reset_keys(args: &[String]) -> std::io::Result<i32> {
@@ -909,6 +948,7 @@ fn print_session_error(code: &str, message: &str) {
 fn print_config_help() {
     eprintln!("herdr config commands:");
     eprintln!("  herdr config reset-keys  back up config.toml and remove custom keybindings");
+    eprintln!("  herdr config set-theme <name>  activate a built-in or external theme");
 }
 
 fn print_terminal_help() {

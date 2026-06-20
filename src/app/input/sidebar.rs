@@ -176,7 +176,7 @@ impl AppState {
 
     pub(crate) fn sidebar_new_button_rect(&self) -> Rect {
         let footer = self.sidebar_footer_rect();
-        let width = 5u16.min(footer.width.max(1));
+        let width = if self.sidebar_action_icons { 3 } else { 5 }.min(footer.width.max(1));
         Rect::new(footer.x, footer.y, width, footer.height)
     }
 
@@ -186,13 +186,19 @@ impl AppState {
         }
 
         let footer = self.sidebar_footer_rect();
-        let width = if self.global_menu_attention_badge_visible() {
+        let width = if self.sidebar_action_icons {
+            3
+        } else if self.global_menu_attention_badge_visible() {
             8
         } else {
             6
         }
         .min(footer.width.max(1));
-        let x = footer.x + footer.width.saturating_sub(width);
+        let right_inset = u16::from(self.inset_sidebar_menu_button);
+        let x = footer.x
+            + footer
+                .width
+                .saturating_sub(width.saturating_add(right_inset));
         Rect::new(x, footer.y, width, footer.height)
     }
 
@@ -238,7 +244,8 @@ impl AppState {
             return false;
         }
         let sidebar = self.view.sidebar_rect;
-        let toggle = crate::ui::expanded_sidebar_toggle_rect(sidebar);
+        let toggle =
+            crate::ui::expanded_sidebar_toggle_rect(sidebar, self.inset_sidebar_collapse_button);
         let on_toggle = toggle.width > 0
             && col >= toggle.x
             && col < toggle.x + toggle.width
@@ -255,7 +262,10 @@ impl AppState {
         let rect = if self.sidebar_collapsed {
             crate::ui::collapsed_sidebar_toggle_rect(self.view.sidebar_rect)
         } else {
-            crate::ui::expanded_sidebar_toggle_rect(self.view.sidebar_rect)
+            crate::ui::expanded_sidebar_toggle_rect(
+                self.view.sidebar_rect,
+                self.inset_sidebar_collapse_button,
+            )
         };
         rect.width > 0
             && col >= rect.x
@@ -433,7 +443,7 @@ impl AppState {
     }
 
     pub(super) fn on_agent_panel_sort_toggle(&self, col: u16, row: u16) -> bool {
-        if self.sidebar_collapsed {
+        if self.sidebar_collapsed || !self.show_agent_sort_toggle {
             return false;
         }
 
@@ -441,7 +451,11 @@ impl AppState {
             self.view.sidebar_rect,
             self.sidebar_section_split,
         );
-        let rect = crate::ui::agent_panel_toggle_rect(detail_area, self.agent_panel_sort);
+        let rect = crate::ui::agent_panel_toggle_rect(
+            detail_area,
+            self.agent_panel_sort,
+            self.agent_sort_toggle_in_footer,
+        );
         rect.width > 0
             && col >= rect.x
             && col < rect.x + rect.width
@@ -460,6 +474,7 @@ impl AppState {
         let detail_area = self.agent_panel_rect();
         let metrics = crate::ui::agent_panel_scroll_metrics(self, detail_area);
         let body = crate::ui::agent_panel_body_rect(
+            self,
             detail_area,
             crate::ui::should_show_scrollbar(metrics),
         );
@@ -500,6 +515,21 @@ mod tests {
         detect::Agent,
         workspace::Workspace,
     };
+
+    #[test]
+    fn compact_sidebar_actions_use_icon_sized_inset_hit_areas() {
+        let mut app = app_for_mouse_test();
+        app.state.sidebar_action_icons = true;
+        app.state.inset_sidebar_menu_button = true;
+
+        let footer = app.state.sidebar_footer_rect();
+        let new_action = app.state.sidebar_new_button_rect();
+        let menu = app.state.global_launcher_rect();
+
+        assert_eq!(new_action.width, 3);
+        assert_eq!(menu.width, 3);
+        assert_eq!(menu.x + menu.width, footer.x + footer.width - 1);
+    }
 
     #[test]
     fn clicking_launcher_opens_global_menu() {
@@ -723,7 +753,11 @@ mod tests {
             app.state.view.sidebar_rect,
             app.state.sidebar_section_split,
         );
-        let toggle = crate::ui::agent_panel_toggle_rect(detail_area, app.state.agent_panel_sort);
+        let toggle = crate::ui::agent_panel_toggle_rect(
+            detail_area,
+            app.state.agent_panel_sort,
+            app.state.agent_sort_toggle_in_footer,
+        );
         app.handle_mouse(mouse(
             MouseEventKind::Down(MouseButton::Left),
             toggle.x,
@@ -732,6 +766,30 @@ mod tests {
 
         assert_eq!(app.state.agent_panel_sort, AgentPanelSort::Priority);
         assert_eq!(app.state.agent_panel_scroll, 0);
+    }
+
+    #[test]
+    fn hidden_agent_panel_toggle_does_not_switch_sort() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces = vec![Workspace::test_new("test")];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.show_agent_sort_toggle = false;
+        app.state.agent_sort_toggle_in_footer = true;
+
+        let (_, detail_area) = crate::ui::expanded_sidebar_sections(
+            app.state.view.sidebar_rect,
+            app.state.sidebar_section_split,
+        );
+        let toggle =
+            crate::ui::agent_panel_toggle_rect(detail_area, app.state.agent_panel_sort, true);
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            toggle.x,
+            toggle.y,
+        ));
+
+        assert_eq!(app.state.agent_panel_sort, AgentPanelSort::Spaces);
     }
 
     #[test]
@@ -888,7 +946,7 @@ mod tests {
         app.state.agent_panel_scroll = 1;
 
         let detail_area = app.state.agent_panel_rect();
-        let body = crate::ui::agent_panel_body_rect(detail_area, true);
+        let body = crate::ui::agent_panel_body_rect(&app.state, detail_area, true);
         app.handle_mouse(mouse(
             MouseEventKind::Down(MouseButton::Left),
             body.x + 1,
@@ -975,7 +1033,10 @@ mod tests {
         app.state.view.sidebar_rect = Rect::new(0, 0, 26, 20);
         app.state.view.terminal_area = Rect::new(26, 0, 80, 20);
 
-        let toggle = crate::ui::expanded_sidebar_toggle_rect(app.state.view.sidebar_rect);
+        let toggle = crate::ui::expanded_sidebar_toggle_rect(
+            app.state.view.sidebar_rect,
+            app.state.inset_sidebar_collapse_button,
+        );
         app.handle_mouse(mouse(
             MouseEventKind::Down(MouseButton::Left),
             toggle.x,

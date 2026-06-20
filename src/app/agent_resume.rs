@@ -128,7 +128,11 @@ impl App {
         tab: &crate::workspace::Tab,
         terminal_area: Rect,
     ) -> Vec<crate::layout::PaneInfo> {
-        let mut pane_infos = derived_pending_agent_resume_pane_infos(tab, terminal_area);
+        let mut pane_infos = derived_pending_agent_resume_pane_infos(
+            tab,
+            terminal_area,
+            self.state.show_pane_scrollbars,
+        );
 
         if self.state.active == Some(ws_idx)
             && self
@@ -285,6 +289,7 @@ impl App {
 fn derived_pending_agent_resume_pane_infos(
     tab: &crate::workspace::Tab,
     terminal_area: Rect,
+    show_pane_scrollbars: bool,
 ) -> Vec<crate::layout::PaneInfo> {
     let multi_pane = tab.layout.pane_count() > 1;
     tab.layout
@@ -296,7 +301,11 @@ fn derived_pending_agent_resume_pane_infos(
             } else {
                 terminal_area
             };
-            info.inner_rect = stable_terminal_inner_rect(pane_inner);
+            info.inner_rect = if show_pane_scrollbars {
+                stable_terminal_inner_rect(pane_inner)
+            } else {
+                pane_inner
+            };
             info
         })
         .collect()

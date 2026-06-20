@@ -353,17 +353,17 @@ fn render_settings_integrations(app: &AppState, frame: &mut Frame, area: Rect) {
 }
 
 fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
-    use crate::app::state::THEME_NAMES;
-
     let p = &app.palette;
-    let items: Vec<ListItem> = THEME_NAMES
+    let items: Vec<ListItem> = app
+        .settings
+        .theme_names
         .iter()
         .map(|name| {
             let is_current = name.to_lowercase().replace([' ', '_'], "-")
                 == app.theme_name.to_lowercase().replace([' ', '_'], "-");
             let marker = if is_current { " ✓" } else { "" };
             ListItem::new(Line::from(vec![
-                Span::styled(*name, Style::default().fg(p.subtext0)),
+                Span::styled(name, Style::default().fg(p.subtext0)),
                 Span::styled(marker, Style::default().fg(p.green)),
             ]))
         })

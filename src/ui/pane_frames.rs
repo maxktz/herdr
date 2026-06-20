@@ -150,7 +150,7 @@ pub(super) fn render_shared_pane_frames(
         let color = if cell.focused {
             app.palette.accent
         } else {
-            app.palette.overlay0
+            app.palette.separator
         };
         frame.buffer_mut()[(x, y)]
             .set_symbol(glyph(set, cell.arms))
@@ -163,7 +163,7 @@ pub(super) fn render_shared_pane_frames(
             let color = if focused {
                 app.palette.accent
             } else {
-                app.palette.overlay0
+                app.palette.separator
             };
             render_label(
                 app,

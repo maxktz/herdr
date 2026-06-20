@@ -16,6 +16,22 @@ use crate::terminal::TerminalRuntimeRegistry;
 const WORKSPACE_SECTION_HEADER_ROWS: u16 = 2;
 const AGENT_PANEL_HEADER_ROWS: u16 = 3;
 
+fn workspace_section_header_rows(app: &AppState) -> u16 {
+    if app.show_sidebar_section_labels {
+        WORKSPACE_SECTION_HEADER_ROWS
+    } else {
+        1
+    }
+}
+
+fn agent_panel_header_rows(app: &AppState) -> u16 {
+    if app.show_sidebar_section_labels {
+        AGENT_PANEL_HEADER_ROWS
+    } else {
+        2 // Keep the separator plus one row of top padding.
+    }
+}
+
 pub(crate) struct AgentPanelEntry {
     pub ws_idx: usize,
     pub tab_idx: usize,
@@ -76,19 +92,28 @@ fn agent_panel_sort_label(sort: AgentPanelSort) -> &'static str {
     }
 }
 
-pub(crate) fn agent_panel_toggle_rect(area: Rect, sort: AgentPanelSort) -> Rect {
+pub(crate) fn agent_panel_toggle_rect(area: Rect, sort: AgentPanelSort, in_footer: bool) -> Rect {
     if area.width == 0 || area.height < 2 {
         return Rect::default();
     }
 
     let label = agent_panel_sort_label(sort);
     let width = label.chars().count() as u16;
-    Rect::new(
-        area.x + area.width.saturating_sub(width),
-        area.y + 1,
-        width,
-        1,
-    )
+    if in_footer {
+        Rect::new(
+            area.x.saturating_add(1),
+            area.y + area.height.saturating_sub(1),
+            width.min(area.width.saturating_sub(1)),
+            1,
+        )
+    } else {
+        Rect::new(
+            area.x + area.width.saturating_sub(width),
+            area.y + 1,
+            width,
+            1,
+        )
+    }
 }
 
 pub(crate) fn agent_panel_entries(app: &AppState) -> Vec<AgentPanelEntry> {
@@ -299,7 +324,7 @@ fn next_entry_is_indented_workspace(entries: &[WorkspaceListEntry], idx: usize) 
 
 pub(crate) fn normalized_workspace_scroll(app: &AppState, area: Rect, requested: usize) -> usize {
     let ws_area = workspace_list_rect(area, app.sidebar_section_split);
-    let body = workspace_list_body_rect(ws_area, false);
+    let body = workspace_list_body_rect(app, ws_area, false);
     if body.height == 0 {
         return requested;
     }
@@ -417,20 +442,22 @@ pub(crate) fn workspace_list_rect(area: Rect, split_ratio: f32) -> Rect {
     ws_area
 }
 
-pub(crate) fn workspace_list_body_rect(area: Rect, has_scrollbar: bool) -> Rect {
-    if area.width == 0 || area.height <= WORKSPACE_SECTION_HEADER_ROWS {
+pub(crate) fn workspace_list_body_rect(app: &AppState, area: Rect, has_scrollbar: bool) -> Rect {
+    let header_rows = workspace_section_header_rows(app);
+    let footer_rows = 1;
+    if area.width == 0 || area.height <= header_rows.saturating_add(footer_rows) {
         return Rect::default();
     }
 
-    let body_y = area.y.saturating_add(WORKSPACE_SECTION_HEADER_ROWS);
-    let footer_y = area.y + area.height.saturating_sub(1);
-    let body_height = footer_y.saturating_sub(body_y);
+    let body_y = area.y.saturating_add(header_rows);
+    let body_bottom = (area.y + area.height).saturating_sub(footer_rows);
+    let body_height = body_bottom.saturating_sub(body_y);
     let body_width = area.width.saturating_sub(u16::from(has_scrollbar));
     Rect::new(area.x, body_y, body_width, body_height)
 }
 
 fn workspace_list_visible_count(app: &AppState, area: Rect, scroll: usize) -> usize {
-    let body = workspace_list_body_rect(area, false);
+    let body = workspace_list_body_rect(app, area, false);
     if body.width == 0 || body.height == 0 {
         return 0;
     }
@@ -486,7 +513,7 @@ pub(crate) fn workspace_list_scroll_metrics(
 
 pub(crate) fn workspace_list_scrollbar_rect(app: &AppState, area: Rect) -> Option<Rect> {
     let metrics = workspace_list_scroll_metrics(app, area);
-    let body = workspace_list_body_rect(area, true);
+    let body = workspace_list_body_rect(app, area, true);
     (should_show_scrollbar(metrics) && body.width > 0 && body.height > 0).then_some(Rect::new(
         area.x + area.width.saturating_sub(1),
         body.y,
@@ -495,19 +522,22 @@ pub(crate) fn workspace_list_scrollbar_rect(app: &AppState, area: Rect) -> Optio
     ))
 }
 
-pub(crate) fn agent_panel_body_rect(area: Rect, has_scrollbar: bool) -> Rect {
-    if area.width == 0 || area.height <= AGENT_PANEL_HEADER_ROWS {
+pub(crate) fn agent_panel_body_rect(app: &AppState, area: Rect, has_scrollbar: bool) -> Rect {
+    let header_rows = agent_panel_header_rows(app);
+    let footer_rows = u16::from(app.agent_sort_toggle_in_footer && app.show_agent_sort_toggle);
+    if area.width == 0 || area.height <= header_rows.saturating_add(footer_rows) {
         return Rect::default();
     }
 
-    let body_y = area.y.saturating_add(AGENT_PANEL_HEADER_ROWS);
-    let body_height = (area.y + area.height).saturating_sub(body_y);
+    let body_y = area.y.saturating_add(header_rows);
+    let body_bottom = (area.y + area.height).saturating_sub(footer_rows);
+    let body_height = body_bottom.saturating_sub(body_y);
     let body_width = area.width.saturating_sub(u16::from(has_scrollbar));
     Rect::new(area.x, body_y, body_width, body_height)
 }
 
-fn agent_panel_visible_count(area: Rect) -> usize {
-    let body = agent_panel_body_rect(area, false);
+fn agent_panel_visible_count(app: &AppState, area: Rect) -> usize {
+    let body = agent_panel_body_rect(app, area, false);
     if body.width == 0 || body.height < 2 {
         return 0;
     }
@@ -525,7 +555,7 @@ fn agent_panel_visible_count(area: Rect) -> usize {
 }
 
 pub(crate) fn agent_panel_scroll_metrics(app: &AppState, area: Rect) -> crate::pane::ScrollMetrics {
-    let viewport_rows = agent_panel_visible_count(area);
+    let viewport_rows = agent_panel_visible_count(app, area);
     let total_rows = agent_panel_entries(app).len();
     let max_offset_from_bottom = total_rows.saturating_sub(viewport_rows);
     let offset_from_bottom = total_rows
@@ -541,7 +571,7 @@ pub(crate) fn agent_panel_scroll_metrics(app: &AppState, area: Rect) -> crate::p
 
 pub(crate) fn agent_panel_scrollbar_rect(app: &AppState, area: Rect) -> Option<Rect> {
     let metrics = agent_panel_scroll_metrics(app, area);
-    let body = agent_panel_body_rect(area, true);
+    let body = agent_panel_body_rect(app, area, true);
     (should_show_scrollbar(metrics) && body.width > 0 && body.height > 0).then_some(Rect::new(
         area.x + area.width.saturating_sub(1),
         body.y,
@@ -560,7 +590,7 @@ pub(crate) fn compute_workspace_list_areas(
     }
 
     let metrics = workspace_list_scroll_metrics(app, ws_area);
-    let body = workspace_list_body_rect(ws_area, should_show_scrollbar(metrics));
+    let body = workspace_list_body_rect(app, ws_area, should_show_scrollbar(metrics));
     if body.width == 0 || body.height == 0 {
         return (Vec::new(), Vec::new());
     }
@@ -641,7 +671,7 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
     let sep_style = if is_navigating {
         Style::default().fg(p.accent)
     } else {
-        Style::default().fg(p.surface_dim)
+        Style::default().fg(p.separator)
     };
     let sep_x = area.x + area.width.saturating_sub(1);
     let buf = frame.buffer_mut();
@@ -668,14 +698,14 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
         let row_style = if is_selected {
             Style::default().bg(p.surface0)
         } else if is_active {
-            Style::default().bg(p.surface_dim)
+            Style::default().bg(p.active_space_bg)
         } else {
             Style::default()
         };
         let num_style = if is_selected {
             Style::default().fg(p.overlay1).bg(p.surface0)
         } else if is_active {
-            Style::default().fg(p.text).bg(p.surface_dim)
+            Style::default().fg(p.text).bg(p.active_space_bg)
         } else {
             Style::default().fg(p.overlay0)
         };
@@ -701,7 +731,7 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
         let buf = frame.buffer_mut();
         for x in ws_area.x..ws_area.x + ws_area.width {
             buf[(x, divider_y)].set_symbol("─");
-            buf[(x, divider_y)].set_style(Style::default().fg(p.surface_dim));
+            buf[(x, divider_y)].set_style(Style::default().fg(p.separator));
         }
     }
 
@@ -788,7 +818,7 @@ pub(super) fn render_sidebar(
     let sep_style = if is_navigating {
         Style::default().fg(p.accent)
     } else {
-        Style::default().fg(p.surface_dim)
+        Style::default().fg(p.separator)
     };
 
     let sep_x = area.x + area.width.saturating_sub(1);
@@ -828,7 +858,7 @@ fn render_workspace_list(
     };
 
     let list_bottom = area.y + area.height.saturating_sub(1);
-    if area.height > 0 {
+    if app.show_sidebar_section_labels && area.height > 0 {
         frame.render_widget(
             Paragraph::new(Line::from(vec![Span::styled(
                 " spaces",
@@ -859,7 +889,7 @@ fn render_workspace_list(
             } else if is_dragged {
                 p.surface1
             } else {
-                p.surface_dim
+                p.active_space_bg
             };
             let buf = frame.buffer_mut();
             for y in row_y..row_y + row_height {
@@ -986,13 +1016,25 @@ fn render_workspace_list(
 
     if app.mouse_capture && list_bottom > area.y {
         let new_rect = app.sidebar_new_button_rect();
+        let new_label = if app.sidebar_action_icons {
+            " 󰐕 "
+        } else {
+            " new"
+        };
         frame.render_widget(
-            Paragraph::new(Span::styled(" new", Style::default().fg(p.overlay0))),
+            Paragraph::new(Span::styled(new_label, Style::default().fg(p.overlay0))),
             new_rect,
         );
 
         let menu_rect = app.global_launcher_rect();
-        let menu_line = if app.global_menu_attention_badge_visible() {
+        let menu_line = if app.sidebar_action_icons {
+            let color = if app.global_menu_attention_badge_visible() {
+                p.accent
+            } else {
+                p.overlay0
+            };
+            Line::from(vec![Span::styled("󰇘", Style::default().fg(color))])
+        } else if app.global_menu_attention_badge_visible() {
             Line::from(vec![
                 Span::styled(
                     "● ",
@@ -1024,25 +1066,37 @@ fn render_agent_detail(
 
     let sep_line = "─".repeat(area.width as usize);
     frame.render_widget(
-        Paragraph::new(Span::styled(&sep_line, Style::default().fg(p.surface_dim))),
+        Paragraph::new(Span::styled(&sep_line, Style::default().fg(p.separator))),
         Rect::new(area.x, area.y, area.width, 1),
     );
 
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![Span::styled(
-            " agents",
-            Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
-        )])),
-        Rect::new(area.x, area.y + 1, area.width, 1),
-    );
-    let toggle_rect = agent_panel_toggle_rect(area, app.agent_panel_sort);
-    if toggle_rect != Rect::default() {
+    if app.show_sidebar_section_labels {
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![Span::styled(
+                " agents",
+                Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
+            )])),
+            Rect::new(area.x, area.y + 1, area.width, 1),
+        );
+    }
+    let toggle_rect =
+        agent_panel_toggle_rect(area, app.agent_panel_sort, app.agent_sort_toggle_in_footer);
+    if app.show_agent_sort_toggle && toggle_rect != Rect::default() {
+        let style = if app.agent_sort_toggle_in_footer {
+            Style::default().fg(p.overlay0)
+        } else {
+            Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD)
+        };
         frame.render_widget(
             Paragraph::new(Span::styled(
                 agent_panel_sort_label(app.agent_panel_sort),
-                Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
+                style,
             ))
-            .alignment(Alignment::Right),
+            .alignment(if app.agent_sort_toggle_in_footer {
+                Alignment::Left
+            } else {
+                Alignment::Right
+            }),
             toggle_rect,
         );
     }
@@ -1050,7 +1104,7 @@ fn render_agent_detail(
     let details = agent_panel_entries_from(app, terminal_runtimes);
     let metrics = agent_panel_scroll_metrics(app, area);
     let scrollbar_rect = agent_panel_scrollbar_rect(app, area);
-    let body = agent_panel_body_rect(area, should_show_scrollbar(metrics));
+    let body = agent_panel_body_rect(app, area, should_show_scrollbar(metrics));
     if body == Rect::default() {
         return;
     }
@@ -1074,7 +1128,7 @@ fn render_agent_detail(
             .unwrap_or_else(|| state_label(detail.state, detail.seen));
 
         let row_style = if is_active {
-            Style::default().bg(p.surface_dim)
+            Style::default().bg(p.active_space_bg)
         } else {
             Style::default()
         };
@@ -1143,12 +1197,12 @@ pub(crate) fn collapsed_sidebar_toggle_rect(area: Rect) -> Rect {
     Rect::new(x, bottom_y, 1, 1)
 }
 
-pub(crate) fn expanded_sidebar_toggle_rect(area: Rect) -> Rect {
+pub(crate) fn expanded_sidebar_toggle_rect(area: Rect, inset: bool) -> Rect {
     if area.width <= 1 || area.height == 0 {
         return Rect::default();
     }
     Rect::new(
-        area.x + area.width.saturating_sub(2),
+        area.x + area.width.saturating_sub(if inset { 3 } else { 2 }),
         area.y + area.height.saturating_sub(1),
         1,
         1,
@@ -1165,7 +1219,7 @@ fn render_sidebar_toggle(
     let toggle_area = if collapsed {
         collapsed_sidebar_toggle_rect(area)
     } else {
-        expanded_sidebar_toggle_rect(area)
+        expanded_sidebar_toggle_rect(area, app.inset_sidebar_collapse_button)
     };
     if toggle_area == Rect::default() {
         return;
@@ -1196,7 +1250,7 @@ mod tests {
             .draw(|frame| render_sidebar_toggle(&app, frame, area, false, &app.palette))
             .expect("sidebar toggle should render");
 
-        let toggle = expanded_sidebar_toggle_rect(area);
+        let toggle = expanded_sidebar_toggle_rect(area, false);
         assert_eq!(
             terminal.backend().buffer()[(toggle.x, toggle.y)].symbol(),
             "«"
@@ -1206,10 +1260,68 @@ mod tests {
     #[test]
     fn expanded_sidebar_toggle_sits_inside_sidebar_content() {
         let area = Rect::new(0, 0, 26, 20);
-        let toggle = expanded_sidebar_toggle_rect(area);
+        let toggle = expanded_sidebar_toggle_rect(area, false);
 
         assert_eq!(toggle.x, area.x + area.width - 2);
         assert_eq!(toggle.y, area.y + area.height - 1);
+    }
+
+    #[test]
+    fn expanded_sidebar_customization_reclaims_headers_and_reserves_footer() {
+        let mut app = crate::app::state::AppState::test_new();
+        let workspace_area = Rect::new(0, 0, 20, 10);
+        let agent_area = Rect::new(0, 10, 20, 10);
+
+        assert_eq!(
+            workspace_list_body_rect(&app, workspace_area, false),
+            Rect::new(0, 2, 20, 7)
+        );
+        assert_eq!(
+            agent_panel_body_rect(&app, agent_area, false),
+            Rect::new(0, 13, 20, 7)
+        );
+
+        app.show_sidebar_section_labels = false;
+        app.agent_sort_toggle_in_footer = true;
+        assert_eq!(
+            workspace_list_body_rect(&app, workspace_area, false),
+            Rect::new(0, 1, 20, 8)
+        );
+        assert_eq!(
+            agent_panel_body_rect(&app, agent_area, false),
+            Rect::new(0, 12, 20, 7)
+        );
+        assert_eq!(
+            agent_panel_toggle_rect(agent_area, AgentPanelSort::Spaces, true),
+            Rect::new(1, 19, 7, 1)
+        );
+    }
+
+    #[test]
+    fn footer_sort_toggle_is_not_bold() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.show_sidebar_section_labels = false;
+        app.agent_sort_toggle_in_footer = true;
+        let area = Rect::new(0, 0, 20, 10);
+        let toggle = agent_panel_toggle_rect(area, app.agent_panel_sort, true);
+        let mut terminal = Terminal::new(TestBackend::new(20, 10)).unwrap();
+        let runtimes = TerminalRuntimeRegistry::new();
+
+        terminal
+            .draw(|frame| render_agent_detail(&app, &runtimes, frame, area))
+            .unwrap();
+
+        let cell = &terminal.backend().buffer()[(toggle.x, toggle.y)];
+        assert_eq!(cell.symbol(), "g");
+        assert!(!cell.modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn expanded_sidebar_toggle_can_be_inset_one_more_column() {
+        let area = Rect::new(0, 0, 26, 20);
+
+        assert_eq!(expanded_sidebar_toggle_rect(area, true).x, 23);
+        assert_eq!(expanded_sidebar_toggle_rect(area, false).x, 24);
     }
 
     #[test]

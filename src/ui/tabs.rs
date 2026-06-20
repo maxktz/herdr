@@ -319,21 +319,7 @@ pub(super) fn render_tab_bar(app: &AppState, frame: &mut Frame, area: Rect) {
             continue;
         }
         let active = idx == ws.active_tab;
-        let style = if active {
-            let base = Style::default().fg(panel_contrast_fg(p)).bg(p.accent);
-            if tab.is_auto_named() {
-                base.add_modifier(Modifier::DIM)
-            } else {
-                base.add_modifier(Modifier::BOLD)
-            }
-        } else if tab.is_auto_named() {
-            Style::default()
-                .fg(p.overlay0)
-                .bg(p.surface0)
-                .add_modifier(Modifier::DIM)
-        } else {
-            Style::default().fg(p.overlay1).bg(p.surface0)
-        };
+        let style = tab_text_style(p, active, tab.is_auto_named(), app.dim_auto_named_tabs);
         let width = rect.width as usize;
         let name = tab_chrome_label(ws, idx);
         let text = format!(" {:width$}", name, width = width.saturating_sub(1));
@@ -391,6 +377,32 @@ pub(super) fn render_tab_bar(app: &AppState, frame: &mut Frame, area: Rect) {
     }
 }
 
+fn tab_text_style(
+    palette: &crate::app::state::Palette,
+    active: bool,
+    auto_named: bool,
+    dim_auto_named_tabs: bool,
+) -> Style {
+    let dim_auto_name = dim_auto_named_tabs && auto_named;
+    if active {
+        let base = Style::default()
+            .fg(panel_contrast_fg(palette))
+            .bg(palette.accent);
+        if dim_auto_name {
+            base.add_modifier(Modifier::DIM)
+        } else {
+            base.add_modifier(Modifier::BOLD)
+        }
+    } else if dim_auto_name {
+        Style::default()
+            .fg(palette.overlay0)
+            .bg(palette.surface0)
+            .add_modifier(Modifier::DIM)
+    } else {
+        Style::default().fg(palette.overlay1).bg(palette.surface0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -443,5 +455,23 @@ mod tests {
         ws.tabs[0].zoomed = true;
 
         assert_eq!(tab_width(&ws, 0), 14);
+    }
+
+    #[test]
+    fn uniform_tab_text_uses_manual_name_styles_for_auto_names() {
+        let palette = AppState::test_new().palette;
+
+        assert_eq!(
+            tab_text_style(&palette, true, true, false),
+            tab_text_style(&palette, true, false, false)
+        );
+        assert_eq!(
+            tab_text_style(&palette, false, true, false),
+            tab_text_style(&palette, false, false, false)
+        );
+        assert_ne!(
+            tab_text_style(&palette, false, true, true),
+            tab_text_style(&palette, false, false, true)
+        );
     }
 }

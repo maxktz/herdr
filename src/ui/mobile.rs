@@ -773,7 +773,7 @@ fn mobile_item_bg(selected: bool, active: bool, p: &Palette) -> ratatui::style::
     if selected {
         p.surface0
     } else if active {
-        p.surface_dim
+        p.active_space_bg
     } else {
         p.panel_bg
     }

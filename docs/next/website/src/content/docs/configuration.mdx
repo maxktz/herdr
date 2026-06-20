@@ -282,6 +282,8 @@ You can override individual colors:
 ```toml
 [theme.custom]
 panel_bg = "reset"
+active_space_bg = "#292e42"
+separator = "#3b4261"
 accent = "#a6e3a1"
 green = "#a6e3a1"
 blue = "#89b4fa"
@@ -289,7 +291,9 @@ red = "#f38ba8"
 yellow = "#f9e2af"
 ```
 
-Color values accept hex, named colors, `rgb(r,g,b)`, or reset aliases like `reset`, `default`, `none`, and `transparent`.
+`separator` controls structural pane frames and major sidebar dividers independently from dim surfaces and scrollbar tracks. Color values accept hex, named colors, `rgb(r,g,b)`, or reset aliases like `reset`, `default`, `none`, and `transparent`.
+
+Named external themes can provide a complete palette in `themes/<name>.toml` next to `config.toml`. Set `theme.name` to the filename without `.toml`. Valid external themes also appear in the Settings theme palette. External theme files use `schema_version = 1`, a matching `name`, and a `[colors]` table containing every theme token. Built-in themes keep priority over files with the same name.
 
 ## UI and sidebar
 
@@ -309,6 +313,14 @@ redraw_on_focus_gained = true
 mouse_scroll_lines = 3
 confirm_close = true
 prompt_new_tab_name = true
+dim_auto_named_tabs = true
+show_pane_scrollbars = true
+show_sidebar_section_labels = true
+agent_sort_toggle_in_footer = false
+show_agent_sort_toggle = true
+inset_sidebar_collapse_button = false
+sidebar_action_icons = false
+inset_sidebar_menu_button = false
 shared_pane_borders = false
 thick_focused_pane_border = true
 show_agent_labels_on_pane_borders = false
@@ -322,7 +334,11 @@ accent = "cyan"
 
 The agent panel shows all agents across all spaces. `agent_panel_sort` can be `spaces` or `priority`; `workspaces` is accepted as an alias for `spaces`. `spaces` keeps agents grouped by space order. `priority` sorts by attention priority: blocked, done, working, idle, then unknown. Within the same status, agents that most recently changed state appear first.
 
-`confirm_close` controls whether closing a workspace asks for confirmation. `prompt_new_tab_name` controls whether new tabs ask for a label first.
+`confirm_close` controls whether closing a workspace asks for confirmation. `prompt_new_tab_name` controls whether new tabs ask for a label first. Set `dim_auto_named_tabs = false` to render generated and manually named tabs with the same higher-contrast text styles.
+
+Set `show_pane_scrollbars = false` to hide pane scrollbars and return their reserved right-hand column to pane applications. Scrolling through pane history still works with the mouse wheel and copy-mode controls.
+
+The expanded desktop sidebar can be compacted independently: `show_sidebar_section_labels = false` removes the section labels while retaining one row of top padding, `agent_sort_toggle_in_footer = true` moves the grouped/priority control to the bottom-left without bold styling, `show_agent_sort_toggle = false` hides that control while preserving the configured `agent_panel_sort`, `inset_sidebar_collapse_button = true` moves the collapse icon inward, `sidebar_action_icons = true` replaces the new-space and menu labels with icons, and `inset_sidebar_menu_button = true` moves the menu icon inward. The collapsed and mobile sidebars are unchanged.
 
 Set `shared_pane_borders = true` to draw one separator cell between adjacent panes while retaining the outer frame and a complete ring around each pane. The focused pane owns the color and style of shared border cells. Set `thick_focused_pane_border = false` to keep the focused ring one cell wide instead of using thick line glyphs. Both options are also available in the panes tab of in-app settings.
 

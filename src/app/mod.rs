@@ -292,14 +292,25 @@ fn resolve_palette_for_theme_name(
     fallback_name: &str,
     runtime: &state::ThemeRuntimeConfig,
 ) -> state::Palette {
-    let mut palette = state::Palette::from_name(name).unwrap_or_else(|| {
-        tracing::warn!(
-            theme = name,
-            fallback = fallback_name,
-            "unknown theme, falling back"
-        );
-        state::Palette::from_name(fallback_name).unwrap_or_else(state::Palette::catppuccin)
-    });
+    let mut palette = if let Some(palette) = state::Palette::from_name(name) {
+        palette
+    } else {
+        match crate::config::load_external_theme(name) {
+            Ok(Some(theme)) => state::Palette::from_external_theme(&theme),
+            Ok(None) => {
+                tracing::warn!(
+                    theme = name,
+                    fallback = fallback_name,
+                    "unknown theme, falling back"
+                );
+                state::Palette::from_name(fallback_name).unwrap_or_else(state::Palette::catppuccin)
+            }
+            Err(err) => {
+                tracing::warn!(theme = name, error = %err, fallback = fallback_name, "external theme failed to load");
+                state::Palette::from_name(fallback_name).unwrap_or_else(state::Palette::catppuccin)
+            }
+        }
+    };
 
     if let Some(custom) = &runtime.custom {
         palette = palette.with_overrides(custom);
@@ -588,6 +599,14 @@ impl App {
             mouse_scroll_lines: config.ui.mouse_scroll_lines(),
             confirm_close: config.ui.confirm_close,
             prompt_new_tab_name: config.ui.prompt_new_tab_name,
+            dim_auto_named_tabs: config.ui.dim_auto_named_tabs,
+            show_pane_scrollbars: config.ui.show_pane_scrollbars,
+            show_sidebar_section_labels: config.ui.show_sidebar_section_labels,
+            agent_sort_toggle_in_footer: config.ui.agent_sort_toggle_in_footer,
+            show_agent_sort_toggle: config.ui.show_agent_sort_toggle,
+            inset_sidebar_collapse_button: config.ui.inset_sidebar_collapse_button,
+            sidebar_action_icons: config.ui.sidebar_action_icons,
+            inset_sidebar_menu_button: config.ui.inset_sidebar_menu_button,
             shared_pane_borders: config.ui.shared_pane_borders,
             thick_focused_pane_border: config.ui.thick_focused_pane_border,
             show_agent_labels_on_pane_borders: config.ui.show_agent_labels_on_pane_borders,
@@ -623,6 +642,7 @@ impl App {
             settings: state::SettingsState {
                 section: state::SettingsSection::Theme,
                 list: state::SelectionListState::new(0),
+                theme_names: state::available_theme_names(),
                 original_palette: None,
                 original_theme: None,
             },
@@ -1310,6 +1330,14 @@ impl App {
                     config.ui.right_click_passthrough_modifiers();
                 self.state.confirm_close = config.ui.confirm_close;
                 self.state.prompt_new_tab_name = config.ui.prompt_new_tab_name;
+                self.state.dim_auto_named_tabs = config.ui.dim_auto_named_tabs;
+                self.state.show_pane_scrollbars = config.ui.show_pane_scrollbars;
+                self.state.show_sidebar_section_labels = config.ui.show_sidebar_section_labels;
+                self.state.agent_sort_toggle_in_footer = config.ui.agent_sort_toggle_in_footer;
+                self.state.show_agent_sort_toggle = config.ui.show_agent_sort_toggle;
+                self.state.inset_sidebar_collapse_button = config.ui.inset_sidebar_collapse_button;
+                self.state.sidebar_action_icons = config.ui.sidebar_action_icons;
+                self.state.inset_sidebar_menu_button = config.ui.inset_sidebar_menu_button;
                 self.state.shared_pane_borders = config.ui.shared_pane_borders;
                 self.state.thick_focused_pane_border = config.ui.thick_focused_pane_border;
                 self.state.show_agent_labels_on_pane_borders =

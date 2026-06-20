@@ -24,7 +24,10 @@ pub use self::{
         UpdateChannelConfig, MAX_TOAST_DELAY_SECONDS,
     },
     sound::SoundConfig,
-    theme::{parse_color, CustomThemeColors, ThemeConfig},
+    theme::{
+        external_theme_names, external_themes_dir, load_external_theme, parse_color,
+        CustomThemeColors, ExternalTheme, ThemeConfig,
+    },
 };
 
 pub(crate) use self::io::upsert_top_level_bool;
