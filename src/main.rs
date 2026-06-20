@@ -151,9 +151,15 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # smart_pane_navigation_processes = ["vim", "nvim", "view", "gvim", "vimdiff", "nvimdiff", "nvim-qt"]
 
 [update]
-# Update channel used by background checks and `herdr update`.
+# Update channel used by background version checks and `herdr update`.
 # Use "stable" for normal releases or "preview" for opt-in preview builds.
 # channel = "stable"
+
+# Check herdr.dev for new Herdr versions in the background.
+# version_check = true
+
+# Check herdr.dev for remote agent-detection manifest updates in the background.
+# manifest_check = true
 
 [keys]
 # Prefix key to enter prefix mode (default: "ctrl+b")

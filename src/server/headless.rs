@@ -541,7 +541,7 @@ impl HeadlessServer {
             }
 
             if let Some(cwd) = self.app.state.request_new_workspace_cwd.take() {
-                if let Err(err) = self.app.create_workspace_with_options(cwd, true) {
+                if let Err(err) = self.app.create_workspace_with_events(cwd, true) {
                     error!(err = %err, "failed to create workspace at requested cwd");
                     self.app.state.mode = app::Mode::Navigate;
                 }
@@ -2611,6 +2611,15 @@ impl HeadlessServer {
         };
 
         self.sync_foreground_client_state();
+        if matches!(
+            &msg.request.method,
+            api::schema::Method::WorktreeCreate(_) | api::schema::Method::WorktreeRemove(_)
+        ) {
+            let deferred_changed = self
+                .app
+                .handle_deferred_worktree_api_request(msg.request, msg.respond_to);
+            return changed | deferred_changed;
+        }
         let response = if matches!(
             &msg.request.method,
             api::schema::Method::ServerReloadConfig(_)
