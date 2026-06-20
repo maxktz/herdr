@@ -612,6 +612,7 @@ impl App {
             dim_auto_named_tabs: config.ui.dim_auto_named_tabs,
             tab_bar_left_padding: config.ui.tab_bar_left_padding,
             show_pane_scrollbars: config.ui.show_pane_scrollbars,
+            show_sidebar_quit_button: config.ui.show_sidebar_quit_button,
             show_sidebar_section_labels: config.ui.show_sidebar_section_labels,
             agent_sort_toggle_in_footer: config.ui.agent_sort_toggle_in_footer,
             show_agent_sort_toggle: config.ui.show_agent_sort_toggle,
@@ -1358,6 +1359,7 @@ impl App {
                 self.state.dim_auto_named_tabs = config.ui.dim_auto_named_tabs;
                 self.state.tab_bar_left_padding = config.ui.tab_bar_left_padding;
                 self.state.show_pane_scrollbars = config.ui.show_pane_scrollbars;
+                self.state.show_sidebar_quit_button = config.ui.show_sidebar_quit_button;
                 self.state.show_sidebar_section_labels = config.ui.show_sidebar_section_labels;
                 self.state.agent_sort_toggle_in_footer = config.ui.agent_sort_toggle_in_footer;
                 self.state.show_agent_sort_toggle = config.ui.show_agent_sort_toggle;

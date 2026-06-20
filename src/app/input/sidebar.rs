@@ -546,6 +546,23 @@ mod tests {
     }
 
     #[test]
+    fn clicking_sidebar_quit_button_requests_detach() {
+        let mut app = app_for_mouse_test();
+        app.state.show_sidebar_quit_button = true;
+        app.state.detach_exits = false;
+        let button = crate::ui::sidebar_quit_button_rect(app.state.view.sidebar_rect);
+
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            button.x,
+            button.y,
+        ));
+
+        assert!(app.state.detach_requested);
+        assert!(!app.state.should_quit);
+    }
+
+    #[test]
     fn hovering_global_menu_updates_highlight() {
         let mut app = app_for_mouse_test();
         let launcher = app.state.global_launcher_rect();

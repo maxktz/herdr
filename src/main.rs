@@ -291,6 +291,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Set false to return that column to pane applications.
 # show_pane_scrollbars = true
 
+# Show a traffic-light quit button in the expanded desktop sidebar.
+# show_sidebar_quit_button = false
+
 # Show section labels in the expanded desktop sidebar.
 # show_sidebar_section_labels = true
 

@@ -320,7 +320,9 @@ mouse_scroll_lines = 3
 confirm_close = true
 prompt_new_tab_name = true
 dim_auto_named_tabs = true
+tab_bar_left_padding = false
 show_pane_scrollbars = true
+show_sidebar_quit_button = false
 show_sidebar_section_labels = true
 agent_sort_toggle_in_footer = false
 show_agent_sort_toggle = true
@@ -344,9 +346,11 @@ The agent panel shows all agents across all spaces. `agent_panel_sort` can be `s
 
 Set `show_pane_scrollbars = false` to hide pane scrollbars and return their reserved right-hand column to pane applications. Scrolling through pane history still works with the mouse wheel and copy-mode controls.
 
-The expanded desktop sidebar can be compacted independently: `show_sidebar_section_labels = false` removes the section labels while retaining one row of top padding, `agent_sort_toggle_in_footer = true` moves the grouped/priority control to the bottom-left without bold styling, `show_agent_sort_toggle = false` hides that control while preserving the configured `agent_panel_sort`, `inset_sidebar_collapse_button = true` moves the collapse icon inward, `sidebar_action_icons = true` replaces the new-space and menu labels with icons, and `inset_sidebar_menu_button = true` moves the menu icon inward. The collapsed and mobile sidebars are unchanged.
+Set `tab_bar_left_padding = true` to retain one blank column before desktop tab controls.
 
-Set `shared_pane_borders = true` to draw one separator cell between adjacent panes while retaining the outer frame and a complete ring around each pane. The focused pane owns the color and style of shared border cells. Set `thick_focused_pane_border = false` to keep the focused ring one cell wide instead of using thick line glyphs. Both options are also available in the panes tab of in-app settings.
+The expanded desktop sidebar can be compacted independently: `show_sidebar_quit_button = true` adds a traffic-light button that performs the configured detach action, `show_sidebar_section_labels = false` removes the section labels while retaining one row of top padding, `agent_sort_toggle_in_footer = true` moves the grouped/priority control to the bottom-left without bold styling, `show_agent_sort_toggle = false` hides that control while preserving the configured `agent_panel_sort`, `inset_sidebar_collapse_button = true` moves the collapse icon inward, `sidebar_action_icons = true` replaces the new-space and menu labels with icons, and `inset_sidebar_menu_button = true` moves the menu icon inward. The collapsed and mobile sidebars are unchanged.
+
+Set `shared_pane_borders = true` to draw one separator cell between adjacent panes while retaining the outer frame and a complete ring around each pane. On desktop layouts with multiple panes, the leftmost pane also shares the sidebar divider instead of drawing a duplicate border beside it. The focused pane owns the color and style of shared border cells. Single-pane tabs keep the standalone sidebar divider and no pane frame. Set `thick_focused_pane_border = false` to keep the focused ring one cell wide instead of using thick line glyphs. Both options are also available in the panes tab of in-app settings.
 
 Set `mouse_capture = false` if you want your terminal to handle normal clicks, such as command-clicking URLs. With mouse capture enabled, Ctrl-click opens pane links when your terminal sends that modified click to Herdr. This includes macOS; Cmd-click is not reported separately from plain click while Herdr captures mouse input. Use Shift-Ctrl-click on Linux or Shift-Cmd-click on macOS for the terminal-native bypass path.
 

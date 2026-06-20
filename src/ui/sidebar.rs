@@ -17,11 +17,21 @@ const WORKSPACE_SECTION_HEADER_ROWS: u16 = 2;
 const AGENT_PANEL_HEADER_ROWS: u16 = 3;
 
 fn workspace_section_header_rows(app: &AppState) -> u16 {
-    if app.show_sidebar_section_labels {
+    let base = if app.show_sidebar_section_labels {
         WORKSPACE_SECTION_HEADER_ROWS
     } else {
         1
-    }
+    };
+    let quit_button_rows = if app.show_sidebar_quit_button {
+        if app.show_sidebar_section_labels {
+            2
+        } else {
+            1
+        }
+    } else {
+        0
+    };
+    base + quit_button_rows
 }
 
 fn agent_panel_header_rows(app: &AppState) -> u16 {
@@ -442,6 +452,19 @@ pub(crate) fn workspace_list_rect(area: Rect, split_ratio: f32) -> Rect {
     ws_area
 }
 
+pub(crate) fn sidebar_quit_button_rect(area: Rect) -> Rect {
+    let content_width = area.width.saturating_sub(1);
+    if content_width <= 1 || area.height == 0 {
+        return Rect::default();
+    }
+    Rect::new(
+        area.x.saturating_add(1),
+        area.y,
+        5.min(content_width.saturating_sub(1)),
+        1,
+    )
+}
+
 pub(crate) fn workspace_list_body_rect(app: &AppState, area: Rect, has_scrollbar: bool) -> Rect {
     let header_rows = workspace_section_header_rows(app);
     let footer_rows = 1;
@@ -858,13 +881,27 @@ fn render_workspace_list(
     };
 
     let list_bottom = area.y + area.height.saturating_sub(1);
+    if app.show_sidebar_quit_button {
+        let button = sidebar_quit_button_rect(area);
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("▃", Style::default().fg(p.red)),
+                Span::raw(" "),
+                Span::styled("▃", Style::default().fg(p.yellow)),
+                Span::raw(" "),
+                Span::styled("▃", Style::default().fg(p.green)),
+            ])),
+            button,
+        );
+    }
     if app.show_sidebar_section_labels && area.height > 0 {
+        let label_y = area.y + if app.show_sidebar_quit_button { 2 } else { 0 };
         frame.render_widget(
             Paragraph::new(Line::from(vec![Span::styled(
                 " spaces",
                 Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
             )])),
-            Rect::new(area.x, area.y, area.width, 1),
+            Rect::new(area.x, label_y, area.width, 1),
         );
     }
 
@@ -1294,6 +1331,16 @@ mod tests {
         assert_eq!(
             agent_panel_toggle_rect(agent_area, AgentPanelSort::Spaces, true),
             Rect::new(1, 19, 7, 1)
+        );
+
+        app.show_sidebar_quit_button = true;
+        assert_eq!(
+            workspace_list_body_rect(&app, workspace_area, false),
+            Rect::new(0, 2, 20, 7)
+        );
+        assert_eq!(
+            sidebar_quit_button_rect(workspace_area),
+            Rect::new(1, 0, 5, 1)
         );
     }
 

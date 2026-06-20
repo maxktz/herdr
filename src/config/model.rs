@@ -476,6 +476,8 @@ pub struct UiConfig {
     pub tab_bar_left_padding: bool,
     /// Reserve and render a scrollbar column inside panes. Default: true.
     pub show_pane_scrollbars: bool,
+    /// Show the traffic-light quit button in the expanded desktop sidebar. Default: false.
+    pub show_sidebar_quit_button: bool,
     /// Show the "spaces" and "agents" labels in the expanded sidebar. Default: true.
     pub show_sidebar_section_labels: bool,
     /// Move the agent sort toggle from the header to the bottom control row. Default: false.
@@ -683,6 +685,7 @@ impl Default for UiConfig {
             dim_auto_named_tabs: true,
             tab_bar_left_padding: false,
             show_pane_scrollbars: true,
+            show_sidebar_quit_button: false,
             show_sidebar_section_labels: true,
             agent_sort_toggle_in_footer: false,
             show_agent_sort_toggle: true,
@@ -977,6 +980,7 @@ show_pane_scrollbars = false
     fn expanded_sidebar_customization_defaults_preserve_existing_layout_and_parse() {
         let default_config = Config::default();
         assert!(default_config.ui.show_sidebar_section_labels);
+        assert!(!default_config.ui.show_sidebar_quit_button);
         assert!(!default_config.ui.agent_sort_toggle_in_footer);
         assert!(default_config.ui.show_agent_sort_toggle);
         assert!(!default_config.ui.inset_sidebar_collapse_button);
@@ -987,6 +991,7 @@ show_pane_scrollbars = false
             r#"
 [ui]
 show_sidebar_section_labels = false
+show_sidebar_quit_button = true
 agent_sort_toggle_in_footer = true
 show_agent_sort_toggle = false
 inset_sidebar_collapse_button = true
@@ -996,6 +1001,7 @@ inset_sidebar_menu_button = true
         )
         .unwrap();
         assert!(!config.ui.show_sidebar_section_labels);
+        assert!(config.ui.show_sidebar_quit_button);
         assert!(config.ui.agent_sort_toggle_in_footer);
         assert!(!config.ui.show_agent_sort_toggle);
         assert!(config.ui.inset_sidebar_collapse_button);

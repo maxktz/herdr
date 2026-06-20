@@ -20,7 +20,8 @@ use super::{
     modal::{
         apply_context_menu_action, apply_global_menu_action, apply_rename_action,
         confirm_close_accept, confirm_close_cancel, global_menu_actions, leave_modal,
-        modal_action_from_buttons, open_global_menu, open_new_tab_dialog, ModalAction,
+        modal_action_from_buttons, open_global_menu, open_new_tab_dialog, request_detach,
+        ModalAction,
     },
     settings::SettingsAction,
     ScrollbarClickTarget, TAB_DRAG_THRESHOLD, WORKSPACE_DRAG_THRESHOLD,
@@ -373,6 +374,21 @@ impl AppState {
                         }
                     }
                     return None;
+                }
+
+                if self.show_sidebar_quit_button
+                    && !self.sidebar_collapsed
+                    && self.view.layout == ViewLayout::Desktop
+                {
+                    let button = crate::ui::sidebar_quit_button_rect(self.view.sidebar_rect);
+                    if mouse.column >= button.x
+                        && mouse.column < button.x + button.width
+                        && mouse.row >= button.y
+                        && mouse.row < button.y + button.height
+                    {
+                        request_detach(self);
+                        return None;
+                    }
                 }
 
                 if self.on_sidebar_divider(mouse.column, mouse.row) {

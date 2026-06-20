@@ -4,6 +4,8 @@
 
 ### Added
 - Added independent expanded-sidebar options for section labels, agent-sort placement, control insets, and compact action icons.
+- Added optional desktop tab-bar padding.
+- Added an expanded-sidebar traffic-light detach button.
 - Added `ui.show_pane_scrollbars` to hide pane scrollbars and return their reserved column to pane applications.
 - Added `ui.dim_auto_named_tabs` to optionally render generated and manually named tabs with the same higher-contrast text styles.
 - Added smart Vim/Neovim pane navigation for direct `focus_pane_*` keybindings, plus `herdr integration install neovim` for the editor-side navigator plugin. Herdr forwards those keys into Vim-like foreground processes, and the Neovim plugin moves between editor splits first before calling `herdr pane focus --direction ...` at split edges.
