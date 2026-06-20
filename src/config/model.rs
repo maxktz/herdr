@@ -472,6 +472,8 @@ pub struct UiConfig {
     pub prompt_new_tab_name: bool,
     /// Dim auto-named tabs relative to manually named tabs. Default: true.
     pub dim_auto_named_tabs: bool,
+    /// Keep one blank column before desktop tab controls. Default: false.
+    pub tab_bar_left_padding: bool,
     /// Reserve and render a scrollbar column inside panes. Default: true.
     pub show_pane_scrollbars: bool,
     /// Show the "spaces" and "agents" labels in the expanded sidebar. Default: true.
@@ -679,6 +681,7 @@ impl Default for UiConfig {
             confirm_close: true,
             prompt_new_tab_name: true,
             dim_auto_named_tabs: true,
+            tab_bar_left_padding: false,
             show_pane_scrollbars: true,
             show_sidebar_section_labels: true,
             agent_sort_toggle_in_footer: false,
@@ -941,15 +944,18 @@ thick_focused_pane_border = false
     fn auto_named_tab_dimming_defaults_on_and_parses() {
         let default_config = Config::default();
         assert!(default_config.ui.dim_auto_named_tabs);
+        assert!(!default_config.ui.tab_bar_left_padding);
 
         let config: Config = toml::from_str(
             r#"
 [ui]
 dim_auto_named_tabs = false
+tab_bar_left_padding = true
 "#,
         )
         .unwrap();
         assert!(!config.ui.dim_auto_named_tabs);
+        assert!(config.ui.tab_bar_left_padding);
     }
 
     #[test]

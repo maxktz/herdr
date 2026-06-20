@@ -256,6 +256,16 @@ pub(super) fn render_tab_bar(app: &AppState, frame: &mut Frame, area: Rect) {
     };
 
     let p = &app.palette;
+    let content_area = if app.tab_bar_left_padding {
+        Rect::new(
+            area.x.saturating_add(1),
+            area.y,
+            area.width.saturating_sub(1),
+            area.height,
+        )
+    } else {
+        area
+    };
 
     frame.render_widget(
         Paragraph::new(" ".repeat(area.width as usize)).style(Style::default().bg(p.panel_bg)),
@@ -337,7 +347,10 @@ pub(super) fn render_tab_bar(app: &AppState, frame: &mut Frame, area: Rect) {
     {
         if *ws_idx == active_ws_idx {
             if let Some(x) = tab_drop_indicator_x(app, ws, *insert_idx) {
-                frame.buffer_mut()[(x.min(area.x + area.width.saturating_sub(1)), area.y)]
+                frame.buffer_mut()[(
+                    x.min(content_area.x + content_area.width.saturating_sub(1)),
+                    content_area.y,
+                )]
                     .set_symbol("│")
                     .set_style(Style::default().fg(p.accent));
             }
@@ -355,10 +368,10 @@ pub(super) fn render_tab_bar(app: &AppState, frame: &mut Frame, area: Rect) {
         let x = if app.mouse_capture && app.view.tab_scroll_left_hit_area.width > 0 {
             app.view.tab_scroll_left_hit_area.x + app.view.tab_scroll_left_hit_area.width
         } else {
-            area.x
+            content_area.x
         };
-        if x < area.x + area.width {
-            frame.buffer_mut()[(x, area.y)]
+        if x < content_area.x + content_area.width {
+            frame.buffer_mut()[(x, content_area.y)]
                 .set_symbol("…")
                 .set_style(Style::default().fg(p.overlay0));
         }
@@ -367,10 +380,10 @@ pub(super) fn render_tab_bar(app: &AppState, frame: &mut Frame, area: Rect) {
         let x = if app.mouse_capture && app.view.tab_scroll_right_hit_area.width > 0 {
             app.view.tab_scroll_right_hit_area.x.saturating_sub(1)
         } else {
-            area.x + area.width.saturating_sub(1)
+            content_area.x + content_area.width.saturating_sub(1)
         };
-        if x >= area.x && x < area.x + area.width {
-            frame.buffer_mut()[(x, area.y)]
+        if x >= content_area.x && x < content_area.x + content_area.width {
+            frame.buffer_mut()[(x, content_area.y)]
                 .set_symbol("…")
                 .set_style(Style::default().fg(p.overlay0));
         }

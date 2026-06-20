@@ -272,9 +272,19 @@ fn compute_view_internal(
         .active
         .and_then(|i| app.workspaces.get(i))
         .map(|ws| {
+            let tab_content_area = if app.tab_bar_left_padding {
+                Rect::new(
+                    tab_bar_rect.x.saturating_add(1),
+                    tab_bar_rect.y,
+                    tab_bar_rect.width.saturating_sub(1),
+                    tab_bar_rect.height,
+                )
+            } else {
+                tab_bar_rect
+            };
             compute_tab_bar_view(
                 ws,
-                tab_bar_rect,
+                tab_content_area,
                 app.tab_scroll,
                 app.tab_scroll_follow_active,
                 app.mouse_capture,

@@ -610,6 +610,7 @@ impl App {
             confirm_close: config.ui.confirm_close,
             prompt_new_tab_name: config.ui.prompt_new_tab_name,
             dim_auto_named_tabs: config.ui.dim_auto_named_tabs,
+            tab_bar_left_padding: config.ui.tab_bar_left_padding,
             show_pane_scrollbars: config.ui.show_pane_scrollbars,
             show_sidebar_section_labels: config.ui.show_sidebar_section_labels,
             agent_sort_toggle_in_footer: config.ui.agent_sort_toggle_in_footer,
@@ -1355,6 +1356,7 @@ impl App {
                 self.state.confirm_close = config.ui.confirm_close;
                 self.state.prompt_new_tab_name = config.ui.prompt_new_tab_name;
                 self.state.dim_auto_named_tabs = config.ui.dim_auto_named_tabs;
+                self.state.tab_bar_left_padding = config.ui.tab_bar_left_padding;
                 self.state.show_pane_scrollbars = config.ui.show_pane_scrollbars;
                 self.state.show_sidebar_section_labels = config.ui.show_sidebar_section_labels;
                 self.state.agent_sort_toggle_in_footer = config.ui.agent_sort_toggle_in_footer;

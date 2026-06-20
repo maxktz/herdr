@@ -284,6 +284,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Set false to use the same higher-contrast styles for both.
 # dim_auto_named_tabs = true
 
+# Keep one blank column before desktop tab controls.
+# tab_bar_left_padding = false
+
 # Reserve and render a scrollbar column inside panes.
 # Set false to return that column to pane applications.
 # show_pane_scrollbars = true
