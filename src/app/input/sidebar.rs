@@ -1537,6 +1537,31 @@ mod tests {
     }
 
     #[test]
+    fn shared_pane_boundary_still_resizes_sidebar() {
+        let mut app = app_for_mouse_test();
+        app.state.shared_pane_borders = true;
+        app.state.workspaces = vec![Workspace::test_new("test")];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.workspaces[0].test_split(ratatui::layout::Direction::Horizontal);
+        crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 106, 20));
+        let divider = app.state.view.sidebar_rect.right() - 1;
+
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            divider,
+            app.state.view.terminal_area.y + 2,
+        ));
+        app.handle_mouse(mouse(
+            MouseEventKind::Drag(MouseButton::Left),
+            divider + 5,
+            app.state.view.terminal_area.y + 2,
+        ));
+
+        assert_eq!(app.state.sidebar_width, 31);
+    }
+
+    #[test]
     fn dragging_sidebar_bottom_divider_still_sets_manual_width() {
         let mut app = app_for_mouse_test();
         let divider_col = app.state.view.sidebar_rect.x + app.state.view.sidebar_rect.width - 1;

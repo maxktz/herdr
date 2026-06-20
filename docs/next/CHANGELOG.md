@@ -9,6 +9,7 @@
 - Added smart Vim/Neovim pane navigation for direct `focus_pane_*` keybindings, plus `herdr integration install neovim` for the editor-side navigator plugin. Herdr forwards those keys into Vim-like foreground processes, and the Neovim plugin moves between editor splits first before calling `herdr pane focus --direction ...` at split edges.
 - Added named external themes under the config `themes/` directory and the Settings theme palette, plus dedicated `active_space_bg` and `separator` colors for precise theme integration.
 - Added optional shared pane borders and a separate focused-border thickness setting in the panes settings tab and `[ui]` configuration.
+- Shared pane borders now reuse the desktop sidebar divider for the leftmost pane, removing the duplicate border while preserving focused rings and sidebar resizing.
 
 ### Fixed
 - Windows Terminal multiline text paste now reaches pane apps as one bracketed paste, so OMP, Pi, and similar prompts no longer submit each pasted line separately. Plain Esc, Shift+Enter, mouse, focus, resize, and Unicode paste handling are preserved on the Windows client path. (#670)

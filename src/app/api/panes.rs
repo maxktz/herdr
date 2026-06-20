@@ -281,7 +281,7 @@ impl App {
         else {
             return encode_error(id, "pane_layout_unavailable", "pane layout unavailable");
         };
-        let area = self.state.view.terminal_area;
+        let area = crate::ui::pane_area_for_tab(&self.state, tab);
         let frame_layout = if self.state.shared_pane_borders {
             PaneFrameLayout::Shared
         } else {
@@ -398,7 +398,15 @@ impl App {
             .abs()
             .min(0.5);
         let direction: NavDirection = params.direction.into();
-        let area = self.state.view.terminal_area;
+        let Some(tab) = self
+            .state
+            .workspaces
+            .get(ws_idx)
+            .and_then(|ws| ws.tabs.get(tab_idx))
+        else {
+            return encode_error(id, "pane_layout_unavailable", "pane layout unavailable");
+        };
+        let area = crate::ui::pane_area_for_tab(&self.state, tab);
         let changed = self
             .state
             .workspaces
@@ -1624,7 +1632,7 @@ impl App {
         };
         let panes = tab
             .layout
-            .panes_with_frame_layout(self.state.view.terminal_area, frame_layout);
+            .panes_with_frame_layout(crate::ui::pane_area_for_tab(&self.state, tab), frame_layout);
         let source = panes.iter().find(|pane| pane.id == source_pane_id)?;
         find_in_direction(source, direction.into(), &panes)
     }
@@ -1632,7 +1640,7 @@ impl App {
     fn pane_layout_snapshot(&self, ws_idx: usize, tab_idx: usize) -> Option<PaneLayoutSnapshot> {
         let ws = self.state.workspaces.get(ws_idx)?;
         let tab = ws.tabs.get(tab_idx)?;
-        let area = self.state.view.terminal_area;
+        let area = crate::ui::pane_area_for_tab(&self.state, tab);
         let frame_layout = if self.state.shared_pane_borders {
             PaneFrameLayout::Shared
         } else {

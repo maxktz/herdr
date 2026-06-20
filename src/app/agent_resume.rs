@@ -87,9 +87,8 @@ impl App {
         let mut pending = Vec::new();
         for (ws_idx, ws) in self.state.workspaces.iter().enumerate() {
             for (tab_idx, tab) in ws.tabs.iter().enumerate() {
-                for info in
-                    self.pending_agent_resume_pane_infos(ws_idx, tab_idx, tab, terminal_area)
-                {
+                let pane_area = crate::ui::pane_area_for_tab(&self.state, tab);
+                for info in self.pending_agent_resume_pane_infos(ws_idx, tab_idx, tab, pane_area) {
                     let Some(pane) = tab.panes.get(&info.id) else {
                         continue;
                     };

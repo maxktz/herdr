@@ -287,6 +287,7 @@ pub(super) fn render_panes(
             frame,
             &app.view.pane_infos,
             terminal_active,
+            area.x < app.view.terminal_area.x,
         );
     }
 

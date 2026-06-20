@@ -1540,7 +1540,7 @@ impl AppState {
             return;
         };
         let panes = if tab.zoomed {
-            tab.layout.panes(self.view.terminal_area)
+            tab.layout.panes(crate::ui::pane_area_for_tab(self, tab))
         } else {
             self.view.pane_infos.clone()
         };
@@ -1560,7 +1560,7 @@ impl AppState {
             return false;
         };
         let panes = if tab.zoomed {
-            tab.layout.panes(self.view.terminal_area)
+            tab.layout.panes(crate::ui::pane_area_for_tab(self, tab))
         } else {
             self.view.pane_infos.clone()
         };

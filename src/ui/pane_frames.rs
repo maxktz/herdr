@@ -35,6 +35,7 @@ const CROSS: u8 = LEFT | RIGHT | UP | DOWN;
 struct BorderCell {
     arms: u8,
     focused: bool,
+    focused_arms: u8,
 }
 
 fn add_arm(
@@ -46,6 +47,9 @@ fn add_arm(
     let cell = cells.entry(point).or_default();
     cell.arms |= arm;
     cell.focused |= focused;
+    if focused {
+        cell.focused_arms |= arm;
+    }
 }
 
 fn connect(
@@ -80,10 +84,34 @@ fn add_perimeter(cells: &mut BTreeMap<(u16, u16), BorderCell>, rect: Rect, focus
     }
 }
 
-fn border_cells(panes: &[PaneInfo]) -> BTreeMap<(u16, u16), BorderCell> {
+fn border_cells(
+    panes: &[PaneInfo],
+    connect_left_edge_to_sidebar: bool,
+) -> BTreeMap<(u16, u16), BorderCell> {
     let mut cells = BTreeMap::new();
     for pane in panes {
         add_perimeter(&mut cells, pane.rect, pane.is_focused);
+    }
+    if connect_left_edge_to_sidebar {
+        let left = panes.iter().map(|pane| pane.rect.x).min();
+        if let Some(left) = left {
+            let top = panes
+                .iter()
+                .filter(|pane| pane.rect.x == left)
+                .map(|pane| pane.rect.y)
+                .min();
+            let bottom = panes
+                .iter()
+                .filter(|pane| pane.rect.x == left)
+                .map(|pane| pane.rect.bottom().saturating_sub(1))
+                .max();
+            if let Some(top) = top {
+                add_arm(&mut cells, (left, top), UP, false);
+            }
+            if let Some(bottom) = bottom {
+                add_arm(&mut cells, (left, bottom), DOWN, false);
+            }
+        }
     }
     cells
 }
@@ -102,6 +130,14 @@ fn glyph<'a>(set: line::Set<'a>, arms: u8) -> &'a str {
         HORIZONTAL_UP => set.horizontal_up,
         CROSS => set.cross,
         _ => " ",
+    }
+}
+
+fn visible_arms(cell: BorderCell) -> u8 {
+    if cell.focused {
+        cell.focused_arms
+    } else {
+        cell.arms
     }
 }
 
@@ -139,21 +175,23 @@ pub(super) fn render_shared_pane_frames(
     frame: &mut Frame,
     panes: &[PaneInfo],
     terminal_active: bool,
+    connect_left_edge_to_sidebar: bool,
 ) {
     let use_thick_focus = terminal_active && app.thick_focused_pane_border;
-    for ((x, y), cell) in border_cells(panes) {
+    for ((x, y), cell) in border_cells(panes, connect_left_edge_to_sidebar) {
         let set = if cell.focused && use_thick_focus {
             line::THICK
         } else {
             line::NORMAL
         };
+        let arms = visible_arms(cell);
         let color = if cell.focused {
             app.palette.accent
         } else {
             app.palette.separator
         };
         frame.buffer_mut()[(x, y)]
-            .set_symbol(glyph(set, cell.arms))
+            .set_symbol(glyph(set, arms))
             .set_style(Style::default().fg(color));
     }
 
@@ -193,10 +231,13 @@ mod tests {
 
     #[test]
     fn shared_separator_is_one_connected_line() {
-        let cells = border_cells(&[
-            pane(1, Rect::new(0, 0, 6, 5), false),
-            pane(2, Rect::new(5, 0, 5, 5), true),
-        ]);
+        let cells = border_cells(
+            &[
+                pane(1, Rect::new(0, 0, 6, 5), false),
+                pane(2, Rect::new(5, 0, 5, 5), true),
+            ],
+            false,
+        );
 
         for y in 1..4 {
             assert_eq!(cells[&(5, y)].arms, UP | DOWN);
@@ -208,13 +249,71 @@ mod tests {
 
     #[test]
     fn nested_split_produces_a_tee_junction() {
-        let cells = border_cells(&[
-            pane(1, Rect::new(0, 0, 6, 5), false),
-            pane(2, Rect::new(5, 0, 5, 3), false),
-            pane(3, Rect::new(5, 2, 5, 3), true),
-        ]);
+        let cells = border_cells(
+            &[
+                pane(1, Rect::new(0, 0, 6, 5), false),
+                pane(2, Rect::new(5, 0, 5, 3), false),
+                pane(3, Rect::new(5, 2, 5, 3), true),
+            ],
+            false,
+        );
 
         assert_eq!(cells[&(5, 2)].arms, RIGHT | UP | DOWN);
         assert!(cells[&(5, 2)].focused);
+    }
+
+    #[test]
+    fn sidebar_connection_turns_top_left_corner_into_tee() {
+        let cells = border_cells(&[pane(1, Rect::new(5, 2, 8, 5), true)], true);
+
+        assert_eq!(cells[&(5, 2)].arms, UP | RIGHT | DOWN);
+        assert!(cells[&(5, 2)].focused);
+        assert_eq!(visible_arms(cells[&(5, 2)]), RIGHT | DOWN);
+    }
+
+    #[test]
+    fn sidebar_connection_turns_unfocused_bottom_left_corner_into_tee() {
+        let cells = border_cells(&[pane(1, Rect::new(5, 2, 8, 5), false)], true);
+
+        assert_eq!(cells[&(5, 6)].arms, UP | RIGHT | DOWN);
+        assert_eq!(visible_arms(cells[&(5, 6)]), UP | RIGHT | DOWN);
+    }
+
+    #[test]
+    fn focused_bottom_left_corner_overrides_sidebar_connection() {
+        let cells = border_cells(&[pane(1, Rect::new(5, 2, 8, 5), true)], true);
+
+        assert_eq!(cells[&(5, 6)].arms, UP | RIGHT | DOWN);
+        assert_eq!(visible_arms(cells[&(5, 6)]), UP | RIGHT);
+    }
+
+    #[test]
+    fn focused_straight_edge_flattens_tee_junction() {
+        let cells = border_cells(
+            &[
+                pane(1, Rect::new(0, 0, 6, 5), true),
+                pane(2, Rect::new(5, 0, 5, 3), false),
+                pane(3, Rect::new(5, 2, 5, 3), false),
+            ],
+            false,
+        );
+
+        assert_eq!(cells[&(5, 2)].arms, RIGHT | UP | DOWN);
+        assert_eq!(cells[&(5, 2)].focused_arms, UP | DOWN);
+        assert_eq!(visible_arms(cells[&(5, 2)]), UP | DOWN);
+    }
+
+    #[test]
+    fn unfocused_straight_edge_keeps_tee_junction() {
+        let cells = border_cells(
+            &[
+                pane(1, Rect::new(0, 0, 6, 5), false),
+                pane(2, Rect::new(5, 0, 5, 3), false),
+                pane(3, Rect::new(5, 2, 5, 3), false),
+            ],
+            false,
+        );
+
+        assert_eq!(visible_arms(cells[&(5, 2)]), RIGHT | UP | DOWN);
     }
 }

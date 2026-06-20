@@ -91,6 +91,7 @@ pub(crate) use self::{
 use crate::app::state::ViewLayout;
 use crate::app::{AppState, Mode};
 use crate::terminal::TerminalRuntimeRegistry;
+use crate::workspace::Tab;
 
 const COLLAPSED_WIDTH: u16 = 4; // num + space + dot + separator
 
@@ -156,6 +157,8 @@ pub(crate) fn compute_view_without_resizing_panes(
 fn resize_background_tab_panes_to_terminal_area(
     app: &AppState,
     terminal_runtimes: &TerminalRuntimeRegistry,
+    layout: ViewLayout,
+    sidebar_area: Rect,
     terminal_area: Rect,
     cell_size: crate::kitty_graphics::HostCellSize,
 ) {
@@ -164,9 +167,56 @@ fn resize_background_tab_panes_to_terminal_area(
             if app.active == Some(ws_idx) && tab_idx == ws.active_tab_index() {
                 continue;
             }
-            resize_tab_panes(app, terminal_runtimes, tab, terminal_area, cell_size);
+            resize_tab_panes(
+                app,
+                terminal_runtimes,
+                tab,
+                pane_area_for_layout(
+                    layout,
+                    sidebar_area,
+                    terminal_area,
+                    app.shared_pane_borders,
+                    tab.layout.pane_count(),
+                ),
+                cell_size,
+            );
         }
     }
+}
+
+fn pane_area_for_layout(
+    layout: ViewLayout,
+    sidebar_area: Rect,
+    terminal_area: Rect,
+    shared_pane_borders: bool,
+    pane_count: usize,
+) -> Rect {
+    let shares_sidebar = layout == ViewLayout::Desktop
+        && shared_pane_borders
+        && pane_count > 1
+        && sidebar_area.width > 0
+        && terminal_area.width > 0
+        && sidebar_area.right() == terminal_area.x;
+    if shares_sidebar {
+        Rect::new(
+            terminal_area.x.saturating_sub(1),
+            terminal_area.y,
+            terminal_area.width.saturating_add(1),
+            terminal_area.height,
+        )
+    } else {
+        terminal_area
+    }
+}
+
+pub(crate) fn pane_area_for_tab(app: &AppState, tab: &Tab) -> Rect {
+    pane_area_for_layout(
+        app.view.layout,
+        app.view.sidebar_rect,
+        app.view.terminal_area,
+        app.shared_pane_borders,
+        tab.layout.pane_count(),
+    )
 }
 
 fn compute_view_internal(
@@ -233,12 +283,27 @@ fn compute_view_internal(
         .unwrap_or_default();
     app.tab_scroll = tab_bar_view.scroll;
 
+    let active_pane_area = app
+        .active
+        .and_then(|i| app.workspaces.get(i))
+        .and_then(|ws| ws.active_tab())
+        .map(|tab| {
+            pane_area_for_layout(
+                ViewLayout::Desktop,
+                sidebar_area,
+                terminal_area,
+                app.shared_pane_borders,
+                tab.layout.pane_count(),
+            )
+        })
+        .unwrap_or(terminal_area);
+
     let split_borders = app
         .active
         .and_then(|i| app.workspaces.get(i))
         .map(|ws| {
             ws.layout.splits_with_frame_layout(
-                terminal_area,
+                active_pane_area,
                 if app.shared_pane_borders {
                     crate::layout::PaneFrameLayout::Shared
                 } else {
@@ -251,7 +316,7 @@ fn compute_view_internal(
     let pane_infos = compute_pane_infos(
         app,
         terminal_runtimes,
-        terminal_area,
+        active_pane_area,
         resize_panes,
         cell_size,
     );
@@ -259,6 +324,8 @@ fn compute_view_internal(
         resize_background_tab_panes_to_terminal_area(
             app,
             terminal_runtimes,
+            ViewLayout::Desktop,
+            sidebar_area,
             terminal_area,
             cell_size,
         );
@@ -343,6 +410,8 @@ fn compute_mobile_view(
         resize_background_tab_panes_to_terminal_area(
             app,
             terminal_runtimes,
+            ViewLayout::Mobile,
+            Rect::default(),
             terminal_area,
             cell_size,
         );
@@ -388,6 +457,12 @@ pub fn render_with_runtime_registry(
     let sidebar_area = app.view.sidebar_rect;
     let tab_bar_area = app.view.tab_bar_rect;
     let terminal_area = app.view.terminal_area;
+    let pane_area = app
+        .active
+        .and_then(|i| app.workspaces.get(i))
+        .and_then(|ws| ws.active_tab())
+        .map(|tab| pane_area_for_tab(app, tab))
+        .unwrap_or(terminal_area);
 
     if app.view.layout == ViewLayout::Mobile {
         render_mobile_header(app, terminal_runtimes, frame, app.view.mobile_header_rect);
@@ -399,7 +474,7 @@ pub fn render_with_runtime_registry(
     if app.view.layout != ViewLayout::Mobile {
         render_tab_bar(app, frame, tab_bar_area);
     }
-    render_panes(app, terminal_runtimes, frame, terminal_area);
+    render_panes(app, terminal_runtimes, frame, pane_area);
 
     // Ambient notifications sit above panes, but below interactive overlays.
     render_notifications(app, frame, terminal_area);
@@ -794,6 +869,110 @@ mod tests {
         compute_view(&mut app, Rect::new(0, 0, 100, 20));
 
         assert_eq!(app.view.sidebar_rect.width, 22);
+    }
+
+    #[test]
+    fn shared_multi_pane_area_overlaps_expanded_sidebar_divider() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.shared_pane_borders = true;
+        let mut workspace = Workspace::test_new("one");
+        let left_pane = workspace.tabs[0].root_pane;
+        workspace.test_split(ratatui::layout::Direction::Horizontal);
+        workspace.tabs[0].layout.focus_pane(left_pane);
+        app.workspaces = vec![workspace];
+        app.active = Some(0);
+
+        compute_view(&mut app, Rect::new(0, 0, 100, 20));
+
+        let tab = app.workspaces[0].active_tab().unwrap();
+        let pane_area = pane_area_for_tab(&app, tab);
+        assert_eq!(pane_area.x, app.view.sidebar_rect.right() - 1);
+        assert_eq!(pane_area.right(), app.view.terminal_area.right());
+        assert_eq!(
+            app.view
+                .pane_infos
+                .iter()
+                .map(|info| info.inner_rect.x)
+                .min(),
+            Some(app.view.terminal_area.x)
+        );
+    }
+
+    #[test]
+    fn shared_multi_pane_area_overlaps_collapsed_sidebar_divider() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.shared_pane_borders = true;
+        app.sidebar_collapsed = true;
+        let mut workspace = Workspace::test_new("one");
+        workspace.test_split(ratatui::layout::Direction::Horizontal);
+        app.workspaces = vec![workspace];
+        app.active = Some(0);
+
+        compute_view(&mut app, Rect::new(0, 0, 100, 20));
+
+        let pane_area = pane_area_for_tab(&app, app.workspaces[0].active_tab().unwrap());
+        assert_eq!(pane_area.x, app.view.sidebar_rect.right() - 1);
+        assert_eq!(pane_area.right(), app.view.terminal_area.right());
+    }
+
+    #[test]
+    fn shared_single_pane_keeps_sidebar_divider_separate() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.shared_pane_borders = true;
+        app.workspaces = vec![Workspace::test_new("one")];
+        app.active = Some(0);
+
+        compute_view(&mut app, Rect::new(0, 0, 100, 20));
+
+        let pane_area = pane_area_for_tab(&app, app.workspaces[0].active_tab().unwrap());
+        assert_eq!(pane_area, app.view.terminal_area);
+        assert_eq!(app.view.pane_infos[0].rect, app.view.terminal_area);
+        assert_eq!(
+            app.view.pane_infos[0].inner_rect.x,
+            app.view.terminal_area.x
+        );
+    }
+
+    #[test]
+    fn shared_zoomed_multi_pane_keeps_sidebar_overlap() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.shared_pane_borders = true;
+        let mut workspace = Workspace::test_new("one");
+        workspace.test_split(ratatui::layout::Direction::Horizontal);
+        workspace.zoomed = true;
+        app.workspaces = vec![workspace];
+        app.active = Some(0);
+
+        compute_view(&mut app, Rect::new(0, 0, 100, 20));
+
+        let pane_area = pane_area_for_tab(&app, app.workspaces[0].active_tab().unwrap());
+        assert_eq!(app.view.pane_infos[0].rect, pane_area);
+        assert_eq!(
+            app.view.pane_infos[0].inner_rect.x,
+            app.view.terminal_area.x
+        );
+    }
+
+    #[test]
+    fn shared_sidebar_boundary_renders_focused_corner_over_connection() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.shared_pane_borders = true;
+        let mut workspace = Workspace::test_new("one");
+        let left_pane = workspace.tabs[0].root_pane;
+        workspace.test_split(ratatui::layout::Direction::Horizontal);
+        workspace.tabs[0].layout.focus_pane(left_pane);
+        app.workspaces = vec![workspace];
+        app.active = Some(0);
+        app.mode = Mode::Terminal;
+
+        compute_view(&mut app, Rect::new(0, 0, 100, 20));
+        let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
+        terminal.draw(|frame| render(&app, frame)).unwrap();
+
+        let point = (app.view.terminal_area.x - 1, app.view.terminal_area.y);
+        let cell = &terminal.backend().buffer()[point];
+        assert_eq!(cell.symbol(), ratatui::symbols::line::THICK.top_left);
+        assert_eq!(cell.fg, app.palette.accent);
     }
 
     #[test]
