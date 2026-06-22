@@ -302,8 +302,8 @@ pub fn find_in_direction(
     find_in_direction_prefer_recent(focused, direction, panes, std::iter::empty())
 }
 
-/// Find a pane in the given direction, preferring recently focused panes when
-/// they are valid directional candidates.
+/// Find a pane in the given direction, preferring recently focused panes among
+/// the nearest directional candidates.
 pub fn find_in_direction_prefer_recent(
     focused: &PaneInfo,
     direction: NavDirection,
@@ -318,8 +318,20 @@ pub fn find_in_direction_prefer_recent(
         .filter(|(_, p)| pane_is_in_direction(fr, direction, p.rect))
         .collect();
 
+    let Some(nearest_edge_distance) = candidates
+        .iter()
+        .map(|(index, pane)| directional_candidate_rank(fr, direction, pane.rect, *index).0)
+        .min()
+    else {
+        return None;
+    };
+
     for recent_pane_id in recent_pane_ids {
-        if candidates.iter().any(|(_, pane)| pane.id == recent_pane_id) {
+        if candidates.iter().any(|(index, pane)| {
+            pane.id == recent_pane_id
+                && directional_candidate_rank(fr, direction, pane.rect, *index).0
+                    == nearest_edge_distance
+        }) {
             return Some(recent_pane_id);
         }
     }
@@ -1086,6 +1098,37 @@ mod tests {
         assert_eq!(
             find_in_direction(&focused, NavDirection::Left, &panes),
             Some(pane(3))
+        );
+    }
+
+    #[test]
+    fn find_in_direction_recent_preference_does_not_skip_nearest_edge() {
+        let focused = PaneInfo {
+            id: pane(1),
+            rect: Rect::new(0, 0, 10, 10),
+            inner_rect: Rect::new(0, 0, 10, 10),
+            scrollbar_rect: None,
+            is_focused: true,
+        };
+        let middle = PaneInfo {
+            id: pane(2),
+            rect: Rect::new(10, 0, 10, 10),
+            inner_rect: Rect::new(10, 0, 10, 10),
+            scrollbar_rect: None,
+            is_focused: false,
+        };
+        let far = PaneInfo {
+            id: pane(3),
+            rect: Rect::new(20, 0, 10, 10),
+            inner_rect: Rect::new(20, 0, 10, 10),
+            scrollbar_rect: None,
+            is_focused: false,
+        };
+        let panes = vec![focused.clone(), middle, far];
+
+        assert_eq!(
+            find_in_direction_prefer_recent(&focused, NavDirection::Right, &panes, [pane(3)]),
+            Some(pane(2))
         );
     }
 }

@@ -4944,6 +4944,23 @@ mod tests {
     }
 
     #[test]
+    fn navigate_pane_recent_candidate_does_not_skip_nearer_pane() {
+        let mut state = app_with_workspaces(&["test"]);
+        let root = state.workspaces[0].tabs[0].root_pane;
+        let middle = state.workspaces[0].test_split(Direction::Horizontal);
+        let far_right = state.workspaces[0].test_split(Direction::Horizontal);
+
+        assert!(state.focus_pane_in_workspace(0, root));
+        assert!(state.focus_pane_in_workspace(0, far_right));
+        assert!(state.focus_pane_in_workspace(0, root));
+        crate::ui::compute_view(&mut state, ratatui::layout::Rect::new(0, 0, 100, 20));
+
+        state.navigate_pane(NavDirection::Right);
+
+        assert_eq!(state.workspaces[0].focused_pane_id(), Some(middle));
+    }
+
+    #[test]
     fn swap_pane_direction_preserves_focus_and_swaps_layout_cells() {
         let mut state = app_with_workspaces(&["test"]);
         let root = state.workspaces[0].tabs[0].root_pane;
