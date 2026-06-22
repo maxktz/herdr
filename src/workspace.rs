@@ -867,6 +867,8 @@ impl Workspace {
         };
         if !focus_new_pane {
             tab.layout.focus_pane(previous_focus);
+        } else {
+            tab.record_pane_focus(new_pane.pane_id);
         }
         self.register_new_pane_with_number(new_pane.pane_id, pane_number);
         Some(Ok((tab_idx, new_pane)))
@@ -1187,6 +1189,7 @@ impl Workspace {
             number: 1,
             root_pane: root_id,
             layout,
+            focus_mru: vec![root_id],
             panes,
             runtimes: HashMap::new(),
             zoomed: false,
@@ -1238,6 +1241,7 @@ impl Workspace {
             number: self.next_public_tab_number,
             root_pane: root_id,
             layout,
+            focus_mru: vec![root_id],
             panes,
             runtimes: HashMap::new(),
             zoomed: false,

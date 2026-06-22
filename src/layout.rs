@@ -299,60 +299,87 @@ pub fn find_in_direction(
     direction: NavDirection,
     panes: &[PaneInfo],
 ) -> Option<PaneId> {
-    let fr = focused.rect;
+    find_in_direction_prefer_recent(focused, direction, panes, std::iter::empty())
+}
 
-    panes
+/// Find a pane in the given direction, preferring recently focused panes when
+/// they are valid directional candidates.
+pub fn find_in_direction_prefer_recent(
+    focused: &PaneInfo,
+    direction: NavDirection,
+    panes: &[PaneInfo],
+    recent_pane_ids: impl IntoIterator<Item = PaneId>,
+) -> Option<PaneId> {
+    let fr = focused.rect;
+    let candidates: Vec<(usize, &PaneInfo)> = panes
         .iter()
         .enumerate()
         .filter(|(_, p)| p.id != focused.id)
-        .filter(|(_, p)| {
-            let r = p.rect;
-            match direction {
-                NavDirection::Left => {
-                    r.x + r.width <= fr.x.saturating_add(1)
-                        && ranges_overlap(r.y, r.height, fr.y, fr.height)
-                }
-                NavDirection::Right => {
-                    r.x.saturating_add(1) >= fr.x + fr.width
-                        && ranges_overlap(r.y, r.height, fr.y, fr.height)
-                }
-                NavDirection::Up => {
-                    r.y + r.height <= fr.y.saturating_add(1)
-                        && ranges_overlap(r.x, r.width, fr.x, fr.width)
-                }
-                NavDirection::Down => {
-                    r.y.saturating_add(1) >= fr.y + fr.height
-                        && ranges_overlap(r.x, r.width, fr.x, fr.width)
-                }
-            }
-        })
-        .min_by_key(|(index, p)| {
-            let r = p.rect;
-            let edge_distance = match direction {
-                NavDirection::Left => fr.x.saturating_sub(r.x + r.width),
-                NavDirection::Right => r.x.saturating_sub(fr.x + fr.width),
-                NavDirection::Up => fr.y.saturating_sub(r.y + r.height),
-                NavDirection::Down => r.y.saturating_sub(fr.y + fr.height),
-            };
-            let overlap = match direction {
-                NavDirection::Left | NavDirection::Right => {
-                    range_overlap_amount(r.y, r.height, fr.y, fr.height)
-                }
-                NavDirection::Up | NavDirection::Down => {
-                    range_overlap_amount(r.x, r.width, fr.x, fr.width)
-                }
-            };
-            let center_distance = match direction {
-                NavDirection::Left | NavDirection::Right => {
-                    range_center_distance(r.y, r.height, fr.y, fr.height)
-                }
-                NavDirection::Up | NavDirection::Down => {
-                    range_center_distance(r.x, r.width, fr.x, fr.width)
-                }
-            };
-            (edge_distance, Reverse(overlap), center_distance, *index)
-        })
+        .filter(|(_, p)| pane_is_in_direction(fr, direction, p.rect))
+        .collect();
+
+    for recent_pane_id in recent_pane_ids {
+        if candidates.iter().any(|(_, pane)| pane.id == recent_pane_id) {
+            return Some(recent_pane_id);
+        }
+    }
+
+    candidates
+        .into_iter()
+        .min_by_key(|(index, p)| directional_candidate_rank(fr, direction, p.rect, *index))
         .map(|(_, p)| p.id)
+}
+
+fn pane_is_in_direction(focused: Rect, direction: NavDirection, candidate: Rect) -> bool {
+    match direction {
+        NavDirection::Left => {
+            candidate.x + candidate.width <= focused.x.saturating_add(1)
+                && ranges_overlap(candidate.y, candidate.height, focused.y, focused.height)
+        }
+        NavDirection::Right => {
+            candidate.x.saturating_add(1) >= focused.x + focused.width
+                && ranges_overlap(candidate.y, candidate.height, focused.y, focused.height)
+        }
+        NavDirection::Up => {
+            candidate.y + candidate.height <= focused.y.saturating_add(1)
+                && ranges_overlap(candidate.x, candidate.width, focused.x, focused.width)
+        }
+        NavDirection::Down => {
+            candidate.y.saturating_add(1) >= focused.y + focused.height
+                && ranges_overlap(candidate.x, candidate.width, focused.x, focused.width)
+        }
+    }
+}
+
+fn directional_candidate_rank(
+    focused: Rect,
+    direction: NavDirection,
+    candidate: Rect,
+    index: usize,
+) -> (u16, Reverse<u16>, u16, usize) {
+    let edge_distance = match direction {
+        NavDirection::Left => focused.x.saturating_sub(candidate.x + candidate.width),
+        NavDirection::Right => candidate.x.saturating_sub(focused.x + focused.width),
+        NavDirection::Up => focused.y.saturating_sub(candidate.y + candidate.height),
+        NavDirection::Down => candidate.y.saturating_sub(focused.y + focused.height),
+    };
+    let overlap = match direction {
+        NavDirection::Left | NavDirection::Right => {
+            range_overlap_amount(candidate.y, candidate.height, focused.y, focused.height)
+        }
+        NavDirection::Up | NavDirection::Down => {
+            range_overlap_amount(candidate.x, candidate.width, focused.x, focused.width)
+        }
+    };
+    let center_distance = match direction {
+        NavDirection::Left | NavDirection::Right => {
+            range_center_distance(candidate.y, candidate.height, focused.y, focused.height)
+        }
+        NavDirection::Up | NavDirection::Down => {
+            range_center_distance(candidate.x, candidate.width, focused.x, focused.width)
+        }
+    };
+    (edge_distance, Reverse(overlap), center_distance, index)
 }
 
 fn ranges_overlap(a_start: u16, a_len: u16, b_start: u16, b_len: u16) -> bool {

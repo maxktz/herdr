@@ -41,6 +41,7 @@ pub struct Tab {
     /// Identity source for this tab's pane tree.
     pub root_pane: PaneId,
     pub layout: TileLayout,
+    pub(crate) focus_mru: Vec<PaneId>,
     /// Pane viewport state — always present, testable without PTYs.
     pub panes: HashMap<PaneId, PaneState>,
     #[cfg(test)]
@@ -172,6 +173,7 @@ impl Tab {
                 number,
                 root_pane: root_id,
                 layout,
+                focus_mru: vec![root_id],
                 panes,
                 #[cfg(test)]
                 runtimes: HashMap::new(),
@@ -445,6 +447,7 @@ impl Tab {
             number,
             root_pane: pane_id,
             layout: TileLayout::from_saved(Node::Pane(pane_id), pane_id),
+            focus_mru: vec![pane_id],
             panes,
             #[cfg(test)]
             runtimes: HashMap::new(),
@@ -498,6 +501,7 @@ impl Tab {
         }
         let pane_id = moved.pane_id;
         self.panes.insert(pane_id, moved.pane_state);
+        self.record_pane_focus(pane_id);
         self.zoomed = false;
         Ok(pane_id)
     }
@@ -519,12 +523,36 @@ impl Tab {
         }
 
         let pane = self.panes.remove(&pane_id)?;
+        self.prune_focus_mru();
         let terminal_id = pane.attached_terminal_id;
         self.zoomed = false;
         if let Some(next_root) = next_root {
             self.root_pane = next_root;
         }
         Some((pane_id, terminal_id))
+    }
+
+    pub(crate) fn recent_focus_order(&self) -> Vec<PaneId> {
+        self.focus_mru.clone()
+    }
+
+    pub(crate) fn record_pane_focus(&mut self, pane_id: PaneId) {
+        let live_panes = self.layout.pane_ids();
+        if !live_panes.contains(&pane_id) {
+            return;
+        }
+        self.focus_mru
+            .retain(|id| *id != pane_id && live_panes.contains(id));
+        self.focus_mru.insert(0, pane_id);
+    }
+
+    fn prune_focus_mru(&mut self) {
+        let live_panes = self.layout.pane_ids();
+        self.focus_mru.retain(|id| live_panes.contains(id));
+        let focused = self.layout.focused();
+        if live_panes.contains(&focused) && !self.focus_mru.contains(&focused) {
+            self.focus_mru.insert(0, focused);
+        }
     }
 
     fn promoted_root_if_needed(&self, closing: PaneId) -> Option<PaneId> {

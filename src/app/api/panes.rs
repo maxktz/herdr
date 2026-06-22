@@ -15,7 +15,9 @@ use crate::api::schema::{
 };
 use crate::app::actions::{PaneZoomCommand, PaneZoomNoopReason};
 use crate::app::{App, Mode};
-use crate::layout::{find_in_direction, NavDirection, PaneFrameLayout, PaneId};
+use crate::layout::{
+    find_in_direction, find_in_direction_prefer_recent, NavDirection, PaneFrameLayout, PaneId,
+};
 
 use super::super::api_helpers::{
     detect_state_from_api, encode_api_keys, encode_api_text, normalize_custom_status,
@@ -342,7 +344,7 @@ impl App {
             return encode_error(id, "pane_not_found", "pane not found");
         };
         let target =
-            self.directional_pane_target(ws_idx, tab_idx, source_pane_id, params.direction);
+            self.directional_pane_focus_target(ws_idx, tab_idx, source_pane_id, params.direction);
         let reason = target
             .is_none()
             .then_some(PaneFocusDirectionReason::NoNeighbor);
@@ -1635,6 +1637,26 @@ impl App {
             .panes_with_frame_layout(crate::ui::pane_area_for_tab(&self.state, tab), frame_layout);
         let source = panes.iter().find(|pane| pane.id == source_pane_id)?;
         find_in_direction(source, direction.into(), &panes)
+    }
+
+    fn directional_pane_focus_target(
+        &self,
+        ws_idx: usize,
+        tab_idx: usize,
+        source_pane_id: PaneId,
+        direction: PaneDirection,
+    ) -> Option<PaneId> {
+        let tab = self.state.workspaces.get(ws_idx)?.tabs.get(tab_idx)?;
+        let frame_layout = if self.state.shared_pane_borders {
+            PaneFrameLayout::Shared
+        } else {
+            PaneFrameLayout::Independent
+        };
+        let panes = tab
+            .layout
+            .panes_with_frame_layout(crate::ui::pane_area_for_tab(&self.state, tab), frame_layout);
+        let source = panes.iter().find(|pane| pane.id == source_pane_id)?;
+        find_in_direction_prefer_recent(source, direction.into(), &panes, tab.recent_focus_order())
     }
 
     fn pane_layout_snapshot(&self, ws_idx: usize, tab_idx: usize) -> Option<PaneLayoutSnapshot> {

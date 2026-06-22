@@ -5,7 +5,7 @@ use tracing::{info, warn};
 
 use crate::detect::{Agent, AgentState};
 use crate::events::AppEvent;
-use crate::layout::{find_in_direction, NavDirection, PaneId};
+use crate::layout::{find_in_direction, find_in_direction_prefer_recent, NavDirection, PaneId};
 use crate::selection::Selection;
 use crate::terminal::{EffectiveStateChange, TerminalStateMutation};
 use crate::workspace::WorkspaceGitStatus;
@@ -283,6 +283,11 @@ impl AppState {
         if previous.as_ref() != Some(&target) {
             self.previous_pane_focus = previous;
         }
+        if let Some(tab_idx) = self.workspaces[ws_idx].find_tab_index_for_pane(pane_id) {
+            if let Some(tab) = self.workspaces[ws_idx].tabs.get_mut(tab_idx) {
+                tab.record_pane_focus(pane_id);
+            }
+        }
     }
 
     fn record_pane_focus_after_navigation(&mut self, previous: Option<PaneFocusTarget>) {
@@ -315,6 +320,7 @@ impl AppState {
             .and_then(|ws| ws.tabs.get_mut(tab_idx))
         {
             tab.layout.focus_pane(pane_id);
+            tab.record_pane_focus(pane_id);
             self.previous_pane_focus = previous;
             self.mark_session_dirty();
             return true;
@@ -1544,9 +1550,12 @@ impl AppState {
         } else {
             self.view.pane_infos.clone()
         };
+        let recent_pane_ids = tab.recent_focus_order();
 
         if let Some(focused) = panes.iter().find(|p| p.is_focused) {
-            if let Some(target) = find_in_direction(focused, direction, &panes) {
+            if let Some(target) =
+                find_in_direction_prefer_recent(focused, direction, &panes, recent_pane_ids)
+            {
                 self.focus_pane_in_workspace(ws_idx, target);
             }
         }
@@ -4915,6 +4924,23 @@ mod tests {
         assert_eq!(state.view.pane_infos.len(), 1);
         assert_eq!(state.view.pane_infos[0].id, right);
         assert!(state.view.pane_infos[0].inner_rect.x > state.view.pane_infos[0].rect.x);
+    }
+
+    #[test]
+    fn navigate_pane_prefers_recent_candidate_in_direction() {
+        let mut state = app_with_workspaces(&["test"]);
+        let root = state.workspaces[0].tabs[0].root_pane;
+        let top_right = state.workspaces[0].test_split(Direction::Horizontal);
+        let bottom_right = state.workspaces[0].test_split(Direction::Vertical);
+
+        assert!(state.focus_pane_in_workspace(0, top_right));
+        assert!(state.focus_pane_in_workspace(0, bottom_right));
+        assert!(state.focus_pane_in_workspace(0, root));
+        crate::ui::compute_view(&mut state, ratatui::layout::Rect::new(0, 0, 100, 20));
+
+        state.navigate_pane(NavDirection::Right);
+
+        assert_eq!(state.workspaces[0].focused_pane_id(), Some(bottom_right));
     }
 
     #[test]

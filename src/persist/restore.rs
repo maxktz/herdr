@@ -701,6 +701,7 @@ fn restore_tab(
                 number,
                 root_pane,
                 layout,
+                focus_mru: vec![focus],
                 panes,
                 #[cfg(test)]
                 runtimes: HashMap::new(),
