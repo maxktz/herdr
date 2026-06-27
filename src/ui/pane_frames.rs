@@ -147,6 +147,7 @@ fn render_label(
     frame: &mut Frame,
     pane_id: PaneId,
     rect: Rect,
+    focused: bool,
     style: Style,
 ) {
     let Some(title) = app
@@ -155,7 +156,7 @@ fn render_label(
         .and_then(|workspace| workspace.pane_state(pane_id))
         .and_then(|pane| app.terminals.get(&pane.attached_terminal_id))
         .and_then(|terminal| terminal.border_label(app.show_agent_labels_on_pane_borders))
-        .and_then(|label| pane_border_title(&label, rect.width))
+        .and_then(|label| pane_border_title(&label, rect.width, focused))
     else {
         return;
     };
@@ -209,6 +210,7 @@ pub(super) fn render_shared_pane_frames(
                 frame,
                 pane.id,
                 pane.rect,
+                focused,
                 Style::default().fg(color),
             );
         }
@@ -218,6 +220,7 @@ pub(super) fn render_shared_pane_frames(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::widgets::Borders;
 
     fn pane(id: u32, rect: Rect, focused: bool) -> PaneInfo {
         PaneInfo {
@@ -225,6 +228,7 @@ mod tests {
             rect,
             inner_rect: rect,
             scrollbar_rect: None,
+            borders: Borders::ALL,
             is_focused: focused,
         }
     }

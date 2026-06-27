@@ -2,7 +2,7 @@
 // managed by herdr; reinstalling or updating the integration overwrites this file.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=omp
-// HERDR_INTEGRATION_VERSION=3
+// HERDR_INTEGRATION_VERSION=4
 // @ts-nocheck
 
 import { createConnection } from "node:net";
@@ -100,6 +100,35 @@ function parseDurationEnv(name: string, fallback: number): number {
   return parsed;
 }
 
+function currentSessionRef(): Record<string, unknown> | undefined {
+  if (currentAgentSessionPath) {
+    return { agent_session_path: currentAgentSessionPath };
+  }
+  if (currentAgentSessionId) {
+    return { agent_session_id: currentAgentSessionId };
+  }
+  return undefined;
+}
+
+function reportSession(): Promise<void> {
+  const sessionRef = currentSessionRef();
+  if (!sessionRef) {
+    return Promise.resolve();
+  }
+
+  return sendRequest({
+    id: `${source}:session:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+    method: "pane.report_agent_session",
+    params: {
+      pane_id: paneId,
+      source,
+      agent: "omp",
+      seq: nextReportSeq(),
+      ...sessionRef,
+    },
+  });
+}
+
 function sendState(state: AgentState, message?: string, seq = nextReportSeq()): Promise<void> {
   return sendRequest({
     id: `${source}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
@@ -113,6 +142,29 @@ function sendState(state: AgentState, message?: string, seq = nextReportSeq()): 
       seq,
     }),
   });
+}
+
+function releaseAgent(): Promise<void> {
+  return sendRequest({
+    id: `${source}:release:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+    method: "pane.release_agent",
+    params: {
+      pane_id: paneId,
+      source,
+      agent: "omp",
+      seq: nextReportSeq(),
+    },
+  });
+}
+
+function shouldReleaseOnSessionShutdown(event: any): boolean {
+  // OMP tears down and rebinds extension runtimes for internal lifecycle actions
+  // such as /reload, /new, /resume, and /fork. Those do not mean the pane's
+  // agent process has exited, and releasing hook authority there can suppress
+  // legitimate reports from the replacement runtime. Only a user/process quit
+  // should release Herdr's full-lifecycle authority.
+  const reason = event?.reason;
+  return reason === "quit";
 }
 
 let sendInFlight = false;
@@ -167,19 +219,6 @@ function retryableErrorMessage(event: any): string | undefined {
     return undefined;
   }
   return errorMessage || "retryable provider error";
-}
-
-function releaseAgent(): Promise<void> {
-  return sendRequest({
-    id: `${source}:release:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-    method: "pane.release_agent",
-    params: {
-      pane_id: paneId,
-      source,
-      agent: "omp",
-      seq: nextReportSeq(),
-    },
-  });
 }
 
 export default function (pi) {
@@ -287,18 +326,21 @@ export default function (pi) {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    rootSession = ctx?.hasUI === true;
+    if (ctx?.hasUI !== true) {
+      return;
+    }
+    rootSession = true;
+    updateSessionRef(ctx);
+    void reportSession();
+    publishState(true);
+  });
+
+  pi.on("agent_start", (_event, ctx) => {
     if (!rootSession) {
       return;
     }
     updateSessionRef(ctx);
-    publishState(true);
-  });
-
-  pi.on("agent_start", () => {
-    if (!rootSession) {
-      return;
-    }
+    void reportSession();
     clearPendingTimers();
     clearFailureState();
     agentActive = true;
@@ -327,11 +369,13 @@ export default function (pi) {
     scheduleIdle();
   });
 
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (event) => {
     if (!rootSession) {
       return;
     }
     clearPendingTimers();
-    await releaseAgent();
+    if (shouldReleaseOnSessionShutdown(event)) {
+      await releaseAgent();
+    }
   });
 }

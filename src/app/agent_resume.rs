@@ -1,10 +1,7 @@
 use std::time::Instant;
 
 use bytes::Bytes;
-use ratatui::{
-    layout::Rect,
-    widgets::{Block, Borders},
-};
+use ratatui::layout::Rect;
 
 use super::App;
 
@@ -131,6 +128,8 @@ impl App {
             tab,
             terminal_area,
             self.state.show_pane_scrollbars,
+            self.state.pane_borders,
+            self.state.pane_gaps,
         );
 
         if self.state.active == Some(ws_idx)
@@ -289,17 +288,13 @@ fn derived_pending_agent_resume_pane_infos(
     tab: &crate::workspace::Tab,
     terminal_area: Rect,
     show_pane_scrollbars: bool,
+    pane_borders: bool,
+    pane_gaps: bool,
 ) -> Vec<crate::layout::PaneInfo> {
-    let multi_pane = tab.layout.pane_count() > 1;
-    tab.layout
-        .panes(terminal_area)
+    crate::ui::apply_pane_chrome(tab.layout.panes(terminal_area), pane_borders, pane_gaps)
         .into_iter()
         .map(|mut info| {
-            let pane_inner = if multi_pane {
-                Block::default().borders(Borders::ALL).inner(info.rect)
-            } else {
-                terminal_area
-            };
+            let pane_inner = crate::ui::pane_inner_rect(info.rect, info.borders);
             info.inner_rect = if show_pane_scrollbars {
                 stable_terminal_inner_rect(pane_inner)
             } else {
@@ -627,6 +622,7 @@ mod tests {
             rect: ratatui::layout::Rect::new(0, 0, 100, 30),
             inner_rect: ratatui::layout::Rect::new(1, 1, 98, 28),
             scrollbar_rect: None,
+            borders: ratatui::widgets::Borders::ALL,
             is_focused: true,
         }];
         app.state.view.terminal_area = ratatui::layout::Rect::new(0, 0, 100, 30);
@@ -743,6 +739,7 @@ mod tests {
             rect: ratatui::layout::Rect::new(0, 0, 100, 30),
             inner_rect: ratatui::layout::Rect::new(1, 1, 98, 28),
             scrollbar_rect: None,
+            borders: ratatui::widgets::Borders::ALL,
             is_focused: true,
         }];
         app.state.view.terminal_area = ratatui::layout::Rect::new(0, 0, 100, 30);

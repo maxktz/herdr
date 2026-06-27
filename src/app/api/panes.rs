@@ -1254,7 +1254,7 @@ impl App {
             source: params.source,
             agent_label,
             seq: params.seq,
-            session_start_source: crate::agent_resume::normalize_claude_session_start_source(
+            session_start_source: crate::agent_resume::normalize_session_start_source(
                 params.session_start_source,
             ),
         });
@@ -1669,18 +1669,20 @@ impl App {
             PaneFrameLayout::Independent
         };
         let focused_pane_id = self.public_pane_id(ws_idx, tab.layout.focused())?;
-        let panes = tab
-            .layout
-            .panes_with_frame_layout(area, frame_layout)
-            .into_iter()
-            .filter_map(|pane| {
-                Some(PaneLayoutPane {
-                    pane_id: self.public_pane_id(ws_idx, pane.id)?,
-                    focused: pane.is_focused,
-                    rect: pane.rect.into(),
-                })
+        let panes = crate::ui::apply_pane_chrome(
+            tab.layout.panes(area),
+            self.state.pane_borders,
+            self.state.pane_gaps && !self.state.shared_pane_borders,
+        )
+        .into_iter()
+        .filter_map(|pane| {
+            Some(PaneLayoutPane {
+                pane_id: self.public_pane_id(ws_idx, pane.id)?,
+                focused: pane.is_focused,
+                rect: pane.rect.into(),
             })
-            .collect();
+        })
+        .collect();
         let splits = tab
             .layout
             .splits_with_frame_layout(area, frame_layout)

@@ -6149,7 +6149,7 @@ mod tests {
         assert!(KIMI_HOOK_ASSET.contains("agent_session_id"));
         assert!(KIMI_HOOK_ASSET.contains("pane.report_agent_session"));
         assert!(KIMI_HOOK_ASSET.contains("\"state\": action"));
-        assert!(KIMI_HOOK_ASSET.contains("pane.release_agent"));
+        assert!(!KIMI_HOOK_ASSET.contains("pane.release_agent"));
         assert!(COPILOT_HOOK_ASSET.contains("agent_session_id"));
         assert!(COPILOT_HOOK_ASSET.contains("pane.report_agent_session"));
         assert!(!COPILOT_HOOK_ASSET.contains("\"state\":"));
@@ -6168,16 +6168,18 @@ mod tests {
         assert!(OPENCODE_PLUGIN_ASSET.contains("params.agent_session_id = sessionID"));
         assert!(OPENCODE_PLUGIN_ASSET.contains("pane.report_agent_session"));
         assert!(OPENCODE_PLUGIN_ASSET.contains("reportState"));
-        assert!(OPENCODE_PLUGIN_ASSET.contains("pane.release_agent"));
+        assert!(!OPENCODE_PLUGIN_ASSET.contains("pane.release_agent"));
         assert!(KILO_PLUGIN_ASSET.contains("SOURCE = \"herdr:kilo\""));
         assert!(KILO_PLUGIN_ASSET.contains("AGENT = \"kilo\""));
         assert!(KILO_PLUGIN_ASSET.contains("pane.report_agent_session"));
         assert!(KILO_PLUGIN_ASSET.contains("reportState"));
-        assert!(KILO_PLUGIN_ASSET.contains("pane.release_agent"));
+        assert!(!KILO_PLUGIN_ASSET.contains("pane.release_agent"));
         assert!(HERMES_PLUGIN_INIT_ASSET.contains("session_id = _session_id(kwargs)"));
         assert!(HERMES_PLUGIN_INIT_ASSET.contains("agent_session_id"));
         assert!(HERMES_PLUGIN_INIT_ASSET.contains("pane.report_agent\","));
-        assert!(HERMES_PLUGIN_INIT_ASSET.contains("pane.release_agent"));
+        assert!(HERMES_PLUGIN_INIT_ASSET.contains("on_session_end"));
+        assert!(!HERMES_PLUGIN_INIT_ASSET.contains("on_session_finalize"));
+        assert!(!HERMES_PLUGIN_INIT_ASSET.contains("pane.release_agent"));
         assert!(QODERCLI_HOOK_ASSET.contains("HERDR_HOOK_INPUT_FILE"));
         assert!(QODERCLI_HOOK_ASSET.contains("agent_session_id"));
         assert!(QODERCLI_HOOK_ASSET.contains("pane.report_agent_session"));
@@ -6214,7 +6216,8 @@ mod tests {
                 .count(),
             1
         );
-        assert!(OMP_EXTENSION_ASSET.contains("rootSession = ctx?.hasUI === true"));
+        assert!(OMP_EXTENSION_ASSET.contains("if (ctx?.hasUI !== true)"));
+        assert!(OMP_EXTENSION_ASSET.contains("rootSession = true"));
         assert!(export_start < root_session_decl);
         assert!(root_session_decl < session_start_handler);
     }

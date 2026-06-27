@@ -19,6 +19,7 @@ mod settings;
 mod sidebar;
 mod status;
 mod tabs;
+mod text;
 mod widgets;
 
 use self::dialogs::{
@@ -74,8 +75,8 @@ pub(crate) use self::{
         collapsed_sidebar_toggle_rect, compute_workspace_card_areas, expanded_sidebar_sections,
         expanded_sidebar_toggle_rect, normalized_workspace_scroll, sidebar_quit_button_rect,
         sidebar_section_divider_rect, workspace_drop_indicator_row, workspace_list_entries,
-        workspace_list_rect, workspace_list_scroll_metrics, workspace_list_scrollbar_rect,
-        workspace_parent_group_state, WorkspaceListEntry,
+        workspace_list_entries_expanded, workspace_list_rect, workspace_list_scroll_metrics,
+        workspace_list_scrollbar_rect, workspace_parent_group_state, WorkspaceListEntry,
     },
 };
 pub(crate) use self::{
@@ -84,7 +85,7 @@ pub(crate) use self::{
         mobile_switcher_areas, mobile_switcher_max_scroll, mobile_switcher_target_at,
         mobile_switcher_workspace_doc_range, MobileSwitcherTarget,
     },
-    panes::pane_is_scrolled_back,
+    panes::{apply_pane_chrome, pane_inner_rect, pane_is_scrolled_back},
     tabs::compute_tab_bar_view,
     widgets::{centered_popup_rect, modal_stack_areas},
 };
@@ -312,14 +313,18 @@ fn compute_view_internal(
         .active
         .and_then(|i| app.workspaces.get(i))
         .map(|ws| {
-            ws.layout.splits_with_frame_layout(
-                active_pane_area,
-                if app.shared_pane_borders {
-                    crate::layout::PaneFrameLayout::Shared
-                } else {
-                    crate::layout::PaneFrameLayout::Independent
-                },
-            )
+            if ws.zoomed {
+                Vec::new()
+            } else {
+                ws.layout.splits_with_frame_layout(
+                    active_pane_area,
+                    if app.shared_pane_borders || !app.pane_gaps {
+                        crate::layout::PaneFrameLayout::Shared
+                    } else {
+                        crate::layout::PaneFrameLayout::Independent
+                    },
+                )
+            }
         })
         .unwrap_or_default();
 
@@ -398,14 +403,18 @@ fn compute_mobile_view(
         .active
         .and_then(|i| app.workspaces.get(i))
         .map(|ws| {
-            ws.layout.splits_with_frame_layout(
-                terminal_area,
-                if app.shared_pane_borders {
-                    crate::layout::PaneFrameLayout::Shared
-                } else {
-                    crate::layout::PaneFrameLayout::Independent
-                },
-            )
+            if ws.zoomed {
+                Vec::new()
+            } else {
+                ws.layout.splits_with_frame_layout(
+                    terminal_area,
+                    if app.shared_pane_borders || !app.pane_gaps {
+                        crate::layout::PaneFrameLayout::Shared
+                    } else {
+                        crate::layout::PaneFrameLayout::Independent
+                    },
+                )
+            }
         })
         .unwrap_or_default();
 
@@ -1243,6 +1252,7 @@ mod tests {
             rect: Rect::new(0, 0, 12, 8),
             inner_rect: Rect::new(1, 1, 9, 6),
             scrollbar_rect: Some(Rect::new(10, 1, 1, 6)),
+            borders: ratatui::widgets::Borders::ALL,
             is_focused: true,
         };
 
@@ -1484,5 +1494,40 @@ mod tests {
             .join("");
         assert!(rendered_help.contains("open lazygit"));
         assert!(rendered_help.contains("custom command"));
+    }
+
+    #[test]
+    fn keybind_help_compacts_multiple_indexed_ranges() {
+        let config: crate::config::Config = toml::from_str(
+            r#"
+[keys]
+switch_tab = ["prefix+1..9", "alt+1..9"]
+switch_workspace = "ctrl+1..9"
+"#,
+        )
+        .expect("config parses");
+
+        let mut app = crate::app::state::AppState::test_new();
+        app.keybinds = config.keybinds();
+
+        let workspace_tab = keybind_help_groups(&app)
+            .into_iter()
+            .find(|(name, _)| *name == "workspaces / tabs")
+            .expect("workspace tab group")
+            .1;
+
+        let switch_tab_key = workspace_tab
+            .iter()
+            .find(|(_, label)| label.as_ref() == "switch tab 1-9")
+            .map(|(key, _)| key.as_str())
+            .expect("switch tab help entry");
+        let switch_workspace_key = workspace_tab
+            .iter()
+            .find(|(_, label)| label.as_ref() == "switch workspace 1-9")
+            .map(|(key, _)| key.as_str())
+            .expect("switch workspace help entry");
+
+        assert_eq!(switch_tab_key, "prefix+1..9 / alt+1..9");
+        assert_eq!(switch_workspace_key, "ctrl+1..9");
     }
 }

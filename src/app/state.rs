@@ -1136,6 +1136,7 @@ pub(crate) enum DragTarget {
         path: Vec<bool>,
         direction: Direction,
         area: Rect,
+        grab_offset: u16,
     },
     PaneScrollbar {
         pane_id: crate::layout::PaneId,
@@ -1490,6 +1491,8 @@ pub struct AppState {
     pub inset_sidebar_menu_button: bool,
     pub shared_pane_borders: bool,
     pub thick_focused_pane_border: bool,
+    pub pane_borders: bool,
+    pub pane_gaps: bool,
     pub show_agent_labels_on_pane_borders: bool,
     pub pane_history_persistence: bool,
     /// Expose the focused pane's cursor anchor to the outer terminal even when
@@ -1854,6 +1857,8 @@ impl AppState {
             inset_sidebar_menu_button: false,
             shared_pane_borders: false,
             thick_focused_pane_border: true,
+            pane_borders: true,
+            pane_gaps: false,
             show_agent_labels_on_pane_borders: false,
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,

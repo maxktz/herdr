@@ -316,6 +316,12 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Use thick glyphs for the focused pane frame in terminal mode.
 # thick_focused_pane_border = true
 
+# Draw borders around split panes.
+# pane_borders = true
+
+# Keep split panes visually separated instead of sharing divider borders.
+# pane_gaps = true
+
 # Show detected/reported agent labels in split pane borders when no manual pane name is set.
 # show_agent_labels_on_pane_borders = false
 
@@ -711,11 +717,7 @@ fn main() -> io::Result<()> {
         Err(err) => return Err(err),
     };
 
-    let modify_other_keys_mode = crate::input::host_modify_other_keys_mode(
-        std::env::var("TMUX").is_ok(),
-        std::env::var("TERM_PROGRAM").ok().as_deref(),
-        std::env::var_os("WEZTERM_PANE").is_some(),
-    );
+    let modify_other_keys_mode = crate::input::host_modify_other_keys_mode();
 
     let original_hook = std::panic::take_hook();
     let panic_resets_modify_other_keys = modify_other_keys_mode.is_some();

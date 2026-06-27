@@ -100,6 +100,8 @@ fn spawn_client_process(
     cmd.env_remove("HERDR_CLIENT_SOCKET_PATH");
     cmd.env("SHELL", "/bin/sh");
     cmd.env_remove("HERDR_ENV");
+    cmd.env_remove("HERDR_SESSION");
+    cmd.env_remove("HERDR_SESSION");
 
     let child = pair.slave.spawn_command(cmd).unwrap();
     register_spawned_herdr_pid(child.process_id());
@@ -143,6 +145,8 @@ fn spawn_server(
     cmd.env_remove("HERDR_CLIENT_SOCKET_PATH");
     cmd.env("SHELL", "/bin/sh");
     cmd.env_remove("HERDR_ENV");
+    cmd.env_remove("HERDR_SESSION");
+    cmd.env_remove("HERDR_SESSION");
 
     let child = pair.slave.spawn_command(cmd).unwrap();
     register_spawned_herdr_pid(child.process_id());
@@ -365,6 +369,8 @@ fn client_sees_headless_startup_config_diagnostic() {
     cmd.env_remove("HERDR_CLIENT_SOCKET_PATH");
     cmd.env("SHELL", "/bin/sh");
     cmd.env_remove("HERDR_ENV");
+    cmd.env_remove("HERDR_SESSION");
+    cmd.env_remove("HERDR_SESSION");
 
     let child = pair.slave.spawn_command(cmd).unwrap();
     register_spawned_herdr_pid(child.process_id());
@@ -437,6 +443,7 @@ fn server_unreachable_shows_clear_error() {
         .env("HERDR_SOCKET_PATH", &api_socket)
         .env_remove("HERDR_CLIENT_SOCKET_PATH")
         .env_remove("HERDR_ENV")
+        .env_remove("HERDR_SESSION")
         .output()
         .expect("client command should run");
 
@@ -642,11 +649,11 @@ fn pane_spawn_cwd_fallback_in_server() {
         "version": 2,
         "workspaces": [{
             "custom_name": "missing-cwd",
-            "layout": { "Pane": 0 },
-            "panes": { "0": { "cwd": missing_cwd } },
+            "layout": { "Pane": 1 },
+            "panes": { "1": { "cwd": missing_cwd } },
             "zoomed": false,
-            "focused": 0,
-            "root_pane": 0
+            "focused": 1,
+            "root_pane": 1
         }],
         "active": 0,
         "selected": 0
@@ -794,6 +801,8 @@ fn client_receives_notify_on_agent_state_change() {
     cmd.env_remove("HERDR_CLIENT_SOCKET_PATH");
     cmd.env("SHELL", "/bin/sh");
     cmd.env_remove("HERDR_ENV");
+    cmd.env_remove("HERDR_SESSION");
+    cmd.env_remove("HERDR_SESSION");
 
     let child = pair.slave.spawn_command(cmd).unwrap();
     register_spawned_herdr_pid(child.process_id());
