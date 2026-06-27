@@ -1,6 +1,7 @@
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
+    symbols::line,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,
@@ -439,7 +440,10 @@ fn render_pane_borders(app: &AppState, ws: &crate::workspace::Workspace, frame: 
             .pane_infos
             .iter()
             .any(|info| info.is_focused && line_touches_pane(x, y, info, app.pane_gaps));
-        let symbol = line_cell_symbol(line);
+        let symbol = line_cell_symbol(
+            line,
+            focused && app.mode == Mode::Terminal && app.thick_focused_pane_border,
+        );
         if symbol.is_empty() {
             continue;
         }
@@ -625,23 +629,24 @@ fn render_pane_border_titles(app: &AppState, ws: &crate::workspace::Workspace, f
     }
 }
 
-fn line_cell_symbol(line: LineCell) -> &'static str {
-    match (line.up, line.down, line.left, line.right) {
-        (true, true, true, true) => "┼",
-        (true, true, true, false) => "┤",
-        (true, true, false, true) => "├",
-        (true, false, true, true) => "┴",
-        (false, true, true, true) => "┬",
+fn line_cell_symbol(cell: LineCell, thick: bool) -> &'static str {
+    let set = if thick { line::THICK } else { line::NORMAL };
+    match (cell.up, cell.down, cell.left, cell.right) {
+        (true, true, true, true) => set.cross,
+        (true, true, true, false) => set.vertical_right,
+        (true, true, false, true) => set.vertical_left,
+        (true, false, true, true) => set.horizontal_up,
+        (false, true, true, true) => set.horizontal_down,
         (true, true, false, false) | (true, false, false, false) | (false, true, false, false) => {
-            "│"
+            set.vertical
         }
         (false, false, true, true) | (false, false, true, false) | (false, false, false, true) => {
-            "─"
+            set.horizontal
         }
-        (false, true, false, true) => "┌",
-        (false, true, true, false) => "┐",
-        (true, false, false, true) => "└",
-        (true, false, true, false) => "┘",
+        (false, true, false, true) => set.top_left,
+        (false, true, true, false) => set.top_right,
+        (true, false, false, true) => set.bottom_left,
+        (true, false, true, false) => set.bottom_right,
         _ => "",
     }
 }
@@ -1067,10 +1072,40 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(2, 2)].symbol(), "┼");
+        assert_eq!(buffer[(2, 2)].symbol(), line::THICK.cross);
         assert_eq!(buffer[(2, 2)].style().fg, Some(app.palette.accent));
-        assert_eq!(buffer[(2, 1)].symbol(), "│");
+        assert_eq!(buffer[(2, 1)].symbol(), line::THICK.vertical);
         assert_eq!(buffer[(2, 1)].style().fg, Some(app.palette.accent));
+    }
+
+    #[test]
+    fn focused_pane_border_uses_thick_glyphs_in_terminal_mode() {
+        let mut app = AppState::test_new();
+        app.mode = Mode::Terminal;
+        app.pane_gaps = true;
+        app.thick_focused_pane_border = true;
+        app.view.terminal_area = Rect::new(0, 0, 4, 3);
+        app.view.pane_infos = vec![PaneInfo {
+            id: PaneId::from_raw(1),
+            rect: Rect::new(0, 0, 4, 3),
+            inner_rect: Rect::default(),
+            scrollbar_rect: None,
+            borders: Borders::ALL,
+            is_focused: true,
+        }];
+        let ws = Workspace::test_new("test");
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(4, 3)).unwrap();
+
+        terminal
+            .draw(|frame| render_pane_borders(&app, &ws, frame))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(0, 0)].symbol(), line::THICK.top_left);
+        assert_eq!(buffer[(1, 0)].symbol(), line::THICK.horizontal);
+        assert_eq!(buffer[(0, 1)].symbol(), line::THICK.vertical);
+        assert_eq!(buffer[(0, 0)].style().fg, Some(app.palette.accent));
     }
 
     #[test]
